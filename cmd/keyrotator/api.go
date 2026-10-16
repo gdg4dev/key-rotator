@@ -224,7 +224,7 @@ type providerReq struct {
 	AuthPrefix *string `json:"authPrefix"`
 }
 
-// checkNames rejects group and pool names the server will not store.
+// checkNames rejects group and part names the server will not store.
 func (req providerReq) checkNames() error {
 	if req.Inject == nil {
 		return nil
@@ -233,7 +233,7 @@ func (req providerReq) checkNames() error {
 		if err := validateName("group", r.Group); err != nil {
 			return err
 		}
-		if err := validateName("pool", r.Pool); err != nil {
+		if err := validateName("part", r.Part); err != nil {
 			return err
 		}
 	}
@@ -326,10 +326,10 @@ func (a *App) putProvider(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 type keyReq struct {
-	Label   string  `json:"label"`
-	Value   string  `json:"value"`
-	Enabled *bool   `json:"enabled"`
-	Pool    *string `json:"pool"`
+	Label   string             `json:"label"`
+	Value   string             `json:"value"`
+	Enabled *bool              `json:"enabled"`
+	Parts   *map[string]string `json:"parts"`
 }
 
 func (a *App) postKey(w http.ResponseWriter, r *http.Request, pid string) {
@@ -361,12 +361,12 @@ func (a *App) postKey(w http.ResponseWriter, r *http.Request, pid string) {
 	if req.Enabled != nil {
 		k.Enabled = *req.Enabled
 	}
-	if req.Pool != nil {
-		if err := validateName("pool", *req.Pool); err != nil {
+	if req.Parts != nil {
+		if err := validateParts(*req.Parts); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		k.Pool = storedPool(*req.Pool)
+		k.Parts = normalizeParts(*req.Parts)
 	}
 	if err := p.addKey(k, alias); err != nil {
 		writeErr(w, http.StatusConflict, err.Error())
@@ -402,15 +402,15 @@ func (a *App) putKey(w http.ResponseWriter, r *http.Request, pid, kid string) {
 			return
 		}
 	}
-	if req.Pool != nil {
-		if err := validateName("pool", *req.Pool); err != nil {
+	if req.Parts != nil {
+		if err := validateParts(*req.Parts); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
 	if !a.store.MutateKey(pid, kid, func(_ *Provider, k *Key) error {
-		if req.Pool != nil {
-			k.Pool = storedPool(*req.Pool)
+		if req.Parts != nil {
+			k.Parts = normalizeParts(*req.Parts) // the given set replaces the old one
 		}
 		if strings.TrimSpace(req.Value) != "" {
 			k.Value = strings.TrimSpace(req.Value)

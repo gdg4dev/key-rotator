@@ -107,14 +107,14 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	var resp *http.Response
-	var used []*Key
+	var used *Key
 	var lastErr string
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		keys, throttled := p.PickKeys(pin, func(k *Key) bool {
+		key, throttled := p.Pick(pin, func(k *Key) bool {
 			return a.limits.allow("k:"+k.ID, keyRPS)
 		})
-		if keys == nil {
+		if key == nil {
 			if throttled {
 				retryAfter(w, p.shortestKeyWait(keyRPS, a.limits))
 				a.metrics.rateLimited(pid, "key")
@@ -138,7 +138,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		copyHeaders(req.Header, r.Header)
-		applyInjection(p, keyFinder(keys), req)
+		applyInjection(p, key, req)
 		req.Header.Del("X-Rotator-Key")
 		req.Header.Del("X-Rotator-Token")
 		req.Header.Del("Content-Length")
@@ -148,7 +148,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 
 		resp, err = a.client.Do(req)
 		if err != nil {
-			p.markFailAll(keys, 0, err.Error(), cooldown)
+			p.markFail(key, 0, err.Error(), cooldown)
 			lastErr = err.Error()
 			a.metrics.retry(pid)
 			resp = nil
@@ -161,21 +161,19 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 			if attempt < maxRetries-1 {
 				snippet := peek(resp.Body)
 				resp.Body.Close()
-				p.markFailAll(keys, code, snippet, wait)
+				p.markFail(key, code, snippet, wait)
 				lastErr = fmt.Sprintf("%d %s", code, snippet)
 				a.metrics.retry(pid)
 				resp = nil
 				continue
 			}
-			p.markFailAll(keys, code, http.StatusText(code), wait)
-			used = keys
+			p.markFail(key, code, http.StatusText(code), wait)
+			used = key
 			break
 		}
 
-		for _, k := range keys {
-			p.markOK(k)
-		}
-		used = keys
+		p.markOK(key)
+		used = key
 		break
 	}
 
@@ -203,10 +201,11 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	setCORS(w)
 	w.Header().Set("X-Rotator-Provider", p.ID)
-	label, ids := keyLabels(used)
-	if len(used) > 0 {
-		w.Header().Set("X-Rotator-Key", label)
-		w.Header().Set("X-Rotator-Key-Id", ids)
+	label := ""
+	if used != nil {
+		label = used.Label
+		w.Header().Set("X-Rotator-Key", used.Label)
+		w.Header().Set("X-Rotator-Key-Id", used.ID)
 	}
 	w.WriteHeader(resp.StatusCode)
 

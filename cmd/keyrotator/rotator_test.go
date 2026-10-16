@@ -30,7 +30,7 @@ func TestSelectKey(t *testing.T) {
 	for _, c := range cases {
 		p := &Provider{Strategy: "round_robin", Keys: c.keys}
 		for i := 0; i < 3; i++ {
-			if k, _ := p.selectKey(defaultPool, nil); k == nil || k.ID != c.want {
+			if k, _ := p.selectKey(nil); k == nil || k.ID != c.want {
 				t.Errorf("%s: pick %d = %+v, want %s", c.name, i, k, c.want)
 			}
 		}
@@ -44,7 +44,7 @@ func TestRoundRobinSpreadsEvenly(t *testing.T) {
 	}}
 	seen := map[string]int{}
 	for i := 0; i < 4; i++ {
-		k, _ := p.selectKey(defaultPool, nil)
+		k, _ := p.selectKey(nil)
 		seen[k.ID]++
 	}
 	if seen["a"] != 2 || seen["b"] != 2 {
@@ -60,7 +60,7 @@ func TestApplyInjectionHeaderAndQuery(t *testing.T) {
 		{Enabled: false, In: "header", Name: "X-Off", Source: "static", Value: "nope"},
 	}}
 	req, _ := http.NewRequest("GET", "http://example.test/v1/models?foo=bar", nil)
-	applyInjection(p, func(string) *Key { return &Key{Value: "sk-123"} }, req)
+	applyInjection(p, &Key{Value: "sk-123"}, req)
 
 	if got := req.Header.Get("Authorization"); got != "Bearer sk-123" {
 		t.Errorf("Authorization = %q", got)

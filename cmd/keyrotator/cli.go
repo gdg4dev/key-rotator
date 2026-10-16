@@ -215,6 +215,9 @@ func parseCLI(args []string) (*cliOpts, []string, map[string]string, error) {
 			if err != nil {
 				return nil, nil, nil, err
 			}
+			if name == "part" && flags[name] != "" {
+				v = flags[name] + "\n" + v // --part may be given more than once
+			}
 			flags[name] = v
 		}
 	}
@@ -506,18 +509,21 @@ func (c *cliClient) cmdShow(args []string) int {
 
 		fmt.Println("\nfields:")
 		fw := newTable()
-		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX\tPOOL\tGROUP")
+		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX\tGROUP")
 		for _, r := range p.Inject {
-			src, val, pool := "rotating key", "", poolKey(r.Pool)
+			src, val := "key", ""
+			if r.Part != "" {
+				src = "key part " + r.Part
+			}
 			if r.Source == "static" {
-				src, val, pool = "fixed", r.Value, ""
+				src, val = "fixed", r.Value
 			}
 			mark := "  "
 			if !r.Enabled {
 				mark = "x "
 			}
-			fmt.Fprintf(fw, "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				mark, r.In, r.Name, src, val, r.Prefix, r.Suffix, pool, r.Group)
+			fmt.Fprintf(fw, "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				mark, r.In, r.Name, src, val, r.Prefix, r.Suffix, r.Group)
 		}
 		_ = fw.Flush()
 
@@ -527,14 +533,14 @@ func (c *cliClient) cmdShow(args []string) int {
 			return 0
 		}
 		kw := newTable()
-		fmt.Fprintln(kw, "  ID\tLABEL\tPOOL\tSTATUS\tOK\tERR\tLAST USED")
+		fmt.Fprintln(kw, "  ID\tLABEL\tPARTS\tSTATUS\tOK\tERR\tLAST USED")
 		for _, k := range p.Keys {
 			status := k.Status
 			if !k.Enabled {
 				status = "disabled"
 			}
 			fmt.Fprintf(kw, "  %s\t%s\t%s\t%s\t%d\t%d\t%s\n",
-				k.ID, k.Label, poolKey(k.Pool), status, k.Success, k.Errors, ago(k.LastUsed))
+				k.ID, k.Label, partsLabel(k), status, k.Success, k.Errors, ago(k.LastUsed))
 		}
 		return flush(kw)
 	})
@@ -657,21 +663,21 @@ func (c *cliClient) cmdKeys(args []string) int {
 			return ok("no keys - add one with: keyrotator add-key " + p.ID + " <secret>")
 		}
 		w := newTable()
-		fmt.Fprintln(w, "ID\tLABEL\tPOOL\tSTATE\tSTATUS\tOK\tERR\tLAST USED")
+		fmt.Fprintln(w, "ID\tLABEL\tPARTS\tSTATE\tSTATUS\tOK\tERR\tLAST USED")
 		for _, k := range p.Keys {
 			state := "enabled"
 			if !k.Enabled {
 				state = "disabled"
 			}
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\n",
-				k.ID, k.Label, poolKey(k.Pool), state, k.Status, k.Success, k.Errors, ago(k.LastUsed))
+				k.ID, k.Label, partsLabel(k), state, k.Status, k.Success, k.Errors, ago(k.LastUsed))
 		}
 		return flush(w)
 	})
 }
 
 func (c *cliClient) cmdAddKey(args []string, flags map[string]string) int {
-	if !need(args, 2, "add-key <provider> <secret> [--label L] [--pool P]") {
+	if !need(args, 2, "add-key <provider> <secret> [--label L] [--part name=value ...]") {
 		return 2
 	}
 	return c.withProvider(args[0], func(_ *stateResp, p *Provider) int {
@@ -679,8 +685,16 @@ func (c *cliClient) cmdAddKey(args []string, flags map[string]string) int {
 		if l := flags["label"]; l != "" {
 			body["label"] = l
 		}
-		if pool := flags["pool"]; pool != "" {
-			body["pool"] = pool
+		if raw := flags["part"]; raw != "" {
+			parts := map[string]string{}
+			for _, kv := range strings.Split(raw, "\n") {
+				name, value, found := strings.Cut(kv, "=")
+				if !found {
+					return fail(fmt.Errorf("--part needs name=value, got %q", kv))
+				}
+				parts[name] = value
+			}
+			body["parts"] = parts
 		}
 		var out struct {
 			Key *Key `json:"key"`
@@ -955,7 +969,7 @@ commands:
   on <provider> | off <provider>  enable / disable a provider
   url <provider>                  print the authenticated proxy URL
   keys <provider>                 list a provider's keys
-  add-key <provider> <secret>     add a key            [--label ALIAS] [--pool POOL]
+  add-key <provider> <secret>     add a key            [--label ALIAS] [--part NAME=VALUE ...]
   alias <provider> <key> <name>   rename a key (by id or alias)
   rm-key <provider> <key-id>      delete a key
   key-on <provider> <key-id>      enable a key   (key-off to disable)
@@ -1000,4 +1014,12 @@ func (c *cliClient) cmdAlias(args []string) int {
 		}
 		return ok("renamed key " + kid.ID + " to " + alias)
 	})
+}
+
+// partsLabel lists a key's part names (never their values) for tables.
+func partsLabel(k *Key) string {
+	if len(k.Parts) == 0 {
+		return "-"
+	}
+	return strings.Join(k.partNames(), ",")
 }

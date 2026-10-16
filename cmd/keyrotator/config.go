@@ -26,8 +26,9 @@ type Key struct {
 	LastError     string `json:"lastError"`
 	Success       int64  `json:"success"`
 	Errors        int64  `json:"errors"`
-	// Pool is the key pool this key belongs to; empty means "default". See pool.go.
-	Pool string `json:"pool,omitempty"`
+	// Parts holds a key's other values by name, for APIs that need a matched
+	// set such as an API key and its session id. See parts.go.
+	Parts map[string]string `json:"parts,omitempty"`
 }
 
 // Masked returns a safe-to-display version of the key value.
@@ -61,8 +62,8 @@ type InjectRule struct {
 	// Group ties fields together: rules that share a group are sent only when
 	// all of them are on. Empty means the rule stands alone. See rotator.go.
 	Group string `json:"group,omitempty"`
-	// Pool is the key pool a key place draws from; empty means "default".
-	Pool string `json:"pool,omitempty"`
+	// Part is the part of the key this place sends; empty means the main value.
+	Part string `json:"part,omitempty"`
 }
 
 // Provider is an upstream API plus its pool of keys.
@@ -89,8 +90,8 @@ type Provider struct {
 	AuthHeader string `json:"authHeader,omitempty"`
 	AuthPrefix string `json:"authPrefix,omitempty"`
 
-	mu sync.Mutex     `json:"-"`
-	rr map[string]int `json:"-"` // round-robin position per key pool
+	mu sync.Mutex `json:"-"`
+	rr int        `json:"-"` // round-robin position
 }
 
 func normalizeRules(in []InjectRule) []InjectRule {
@@ -112,9 +113,9 @@ func normalizeRules(in []InjectRule) []InjectRule {
 			r.Source = "key"
 		}
 		r.Value = strings.TrimSpace(r.Value)
-		r.Pool = storedPool(r.Pool)
+		r.Part = partName(r.Part)
 		if r.Source == "static" {
-			r.Pool = "" // a fixed value never uses a key
+			r.Part = "" // a fixed value never uses a key
 		}
 		// Prefix and Suffix are deliberately left untouched.
 		out = append(out, r)
@@ -125,7 +126,7 @@ func normalizeRules(in []InjectRule) []InjectRule {
 func (p *Provider) normalize() {
 	assignAliases(p.Keys)
 	for _, k := range p.Keys {
-		k.Pool = storedPool(k.Pool)
+		k.Parts = normalizeParts(k.Parts)
 	}
 	if p.ID == "" {
 		p.ID = newID()
