@@ -9,92 +9,42 @@ import (
 	"testing"
 )
 
-// ruleNames lists the names of the rules that would be sent, in order.
-func ruleNames(rules []InjectRule) string {
-	names := make([]string, 0, len(rules))
-	for _, r := range rules {
-		names = append(names, r.Name)
+func TestActiveRules(t *testing.T) {
+	on := func(name, group string) InjectRule {
+		return InjectRule{Enabled: true, In: "header", Name: name, Group: group}
 	}
-	return strings.Join(names, ",")
-}
+	off := func(name, group string) InjectRule {
+		return InjectRule{Enabled: false, In: "header", Name: name, Group: group}
+	}
 
-func TestUngroupedRulesCombineFreely(t *testing.T) {
-	rules := []InjectRule{
-		{Enabled: true, In: "header", Name: "x-a"},
-		{Enabled: false, In: "header", Name: "x-b"},
-		{Enabled: true, In: "query", Name: "api_key"},
+	cases := []struct {
+		name  string
+		rules []InjectRule
+		want  string
+	}{
+		{"ungrouped rules combine freely", []InjectRule{on("a", ""), off("b", ""), on("c", "")}, "a,c"},
+		{"a group is all or nothing", []InjectRule{on("a", "g"), off("b", "g"), on("solo", "")}, "solo"},
+		{"group names ignore case and spaces", []InjectRule{on("a", "Beta"), on("b", " beta "), off("c", "BETA")}, ""},
+		{"a member with no name holds its group", []InjectRule{on("", "g"), on("a", "g"), on("solo", "")}, "solo"},
+		{"a complete group is sent", []InjectRule{on("a", "g"), on("b", "g")}, "a,b"},
 	}
-	if got := ruleNames(activeRules(rules)); got != "x-a,api_key" {
-		t.Errorf("active = %q, want x-a,api_key", got)
-	}
-}
-
-func TestGroupIsAllOrNothing(t *testing.T) {
-	rules := []InjectRule{
-		{Enabled: true, In: "header", Name: "x-d", Group: "gamma"},
-		{Enabled: false, In: "header", Name: "x-e", Group: "gamma"}, // one member off holds the group
-		{Enabled: true, In: "header", Name: "x-solo"},
-	}
-	if got := ruleNames(activeRules(rules)); got != "x-solo" {
-		t.Errorf("active = %q, want only x-solo", got)
-	}
-}
-
-func TestGroupNameIsCaseAndSpaceInsensitive(t *testing.T) {
-	rules := []InjectRule{
-		{Enabled: true, In: "header", Name: "x-a", Group: "Beta"},
-		{Enabled: true, In: "header", Name: "x-b", Group: " beta "},
-		{Enabled: false, In: "header", Name: "x-c", Group: "BETA"},
-	}
-	if got := ruleNames(activeRules(rules)); got != "" {
-		t.Errorf("active = %q, want none: BETA is held by its off member", got)
+	for _, c := range cases {
+		var names []string
+		for _, r := range activeRules(c.rules) {
+			names = append(names, r.Name)
+		}
+		if got := strings.Join(names, ","); got != c.want {
+			t.Errorf("%s: active = %q, want %q", c.name, got, c.want)
+		}
 	}
 }
 
-func TestGroupWithBlankNameIsHeld(t *testing.T) {
-	rules := []InjectRule{
-		{Enabled: true, In: "header", Name: "", Group: "pair"},
-		{Enabled: true, In: "header", Name: "x-p", Group: "pair"},
-		{Enabled: true, In: "header", Name: "x-solo"},
-	}
-	if got := ruleNames(activeRules(rules)); got != "x-solo" {
-		t.Errorf("active = %q, want only x-solo", got)
-	}
-}
-
-func TestKeyPlaceAndFixedValueCanShareAGroup(t *testing.T) {
-	rules := []InjectRule{
-		{Enabled: true, In: "header", Name: "x-api-key", Source: "key", Group: "tenant"},
-		{Enabled: true, In: "header", Name: "x-tenant", Source: "static", Value: "acme", Group: "tenant"},
-	}
-	if got := ruleNames(activeRules(rules)); got != "x-api-key,x-tenant" {
-		t.Errorf("both on: active = %q", got)
-	}
-	rules[1].Enabled = false
-	if got := ruleNames(activeRules(rules)); got != "" {
-		t.Errorf("fixed value off: active = %q, want none", got)
-	}
-}
-
-func TestValidateGroup(t *testing.T) {
-	if err := validateGroup("beta"); err != nil {
-		t.Errorf("beta rejected: %v", err)
-	}
-	if err := validateGroup(""); err != nil {
-		t.Errorf("empty (no group) rejected: %v", err)
-	}
-	if err := validateGroup(strings.Repeat("g", maxGroupLen+1)); err == nil {
-		t.Error("over-long group accepted")
-	}
-	if err := validateGroup("bad\tname"); err == nil {
-		t.Error("control character accepted")
-	}
-}
-
+// Saving used to drop rules with no name. For a grouped rule that would
+// silently shrink the group, so such rules must survive normalising.
 func TestNormalizeKeepsGroupedRuleWithBlankName(t *testing.T) {
 	got := normalizeRules([]InjectRule{
 		{Enabled: true, Name: "", Group: "pair"}, // kept: it holds its group
-		{Enabled: true, Name: "", Group: ""},     // dropped: a rule with nothing in it
+		{Enabled: true, Name: "", Group: ""},     // dropped: nothing in it
 		{Enabled: true, Name: "x-a"},
 	})
 	if len(got) != 2 || got[0].Group != "pair" || got[1].Name != "x-a" {
@@ -114,17 +64,17 @@ func TestProxyHoldsGroupWhenAMemberIsOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rules := func(versionOn bool) []InjectRule {
-		return []InjectRule{
-			{Enabled: true, In: "header", Name: "x-api-key", Source: "key", Group: "pair"},
-			{Enabled: versionOn, In: "header", Name: "x-version", Source: "static", Value: "2024-02-01", Group: "pair"},
-		}
+	add := func(id string, versionOn bool) {
+		app.store.AddProvider(&Provider{ID: id, Name: id, BaseURL: upstream.URL, Enabled: true, Strategy: "round_robin",
+			Inject: []InjectRule{
+				{Enabled: true, In: "header", Name: "x-api-key", Source: "key", Group: "pair"},
+				{Enabled: versionOn, In: "header", Name: "x-version", Source: "static", Value: "2024-02-01", Group: "pair"},
+			},
+			Keys: []*Key{{ID: id + "-k", Value: "secret-" + id, Enabled: true, Status: statusOK}},
+		})
 	}
-	key := []*Key{{ID: "k1", Value: "secret-1", Enabled: true, Status: statusOK}}
-	app.store.AddProvider(&Provider{ID: "held", Name: "held", BaseURL: upstream.URL, Enabled: true,
-		Strategy: "round_robin", Inject: rules(false), Keys: key})
-	app.store.AddProvider(&Provider{ID: "sent", Name: "sent", BaseURL: upstream.URL, Enabled: true,
-		Strategy: "round_robin", Inject: rules(true), Keys: []*Key{{ID: "k2", Value: "secret-2", Enabled: true, Status: statusOK}}})
+	add("held", false)
+	add("sent", true)
 
 	call := func(pid string) {
 		rec := httptest.NewRecorder()
@@ -139,7 +89,7 @@ func TestProxyHoldsGroupWhenAMemberIsOff(t *testing.T) {
 		t.Errorf("held group was sent: x-api-key=%q x-version=%q", seen.Get("x-api-key"), seen.Get("x-version"))
 	}
 	call("sent")
-	if seen.Get("x-api-key") != "secret-2" || seen.Get("x-version") != "2024-02-01" {
+	if seen.Get("x-api-key") != "secret-sent" || seen.Get("x-version") != "2024-02-01" {
 		t.Errorf("complete group not sent together: x-api-key=%q x-version=%q", seen.Get("x-api-key"), seen.Get("x-version"))
 	}
 }

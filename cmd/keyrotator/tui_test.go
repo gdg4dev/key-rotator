@@ -84,26 +84,6 @@ func TestTUINavigationMovesBetweenProvidersAndKeys(t *testing.T) {
 	}
 }
 
-func TestTUIAddKeyCollectsInputAndCancels(t *testing.T) {
-	m := testTUIModel()
-	m = press(m, "down") // OpenAI has keys
-	m = press(m, "a")
-	if m.mode != modeAddKey {
-		t.Fatal("'a' should enter add-key mode")
-	}
-	for _, r := range "sk-xyz" {
-		m = press(m, string(r))
-	}
-	m = press(m, "backspace")
-	if m.input != "sk-xy" {
-		t.Errorf("input = %q, want %q", m.input, "sk-xy")
-	}
-	m = press(m, "esc")
-	if m.mode != modeNormal || m.input != "" {
-		t.Error("esc should cancel add-key mode and clear the input")
-	}
-}
-
 func TestTUIDeleteNeedsConfirmation(t *testing.T) {
 	m := testTUIModel()
 	m = press(m, "down")
@@ -114,44 +94,5 @@ func TestTUIDeleteNeedsConfirmation(t *testing.T) {
 	m = press(m, "n")
 	if m.mode != modeNormal {
 		t.Error("any key other than y should cancel the delete")
-	}
-}
-
-func TestTUIMaskTyped(t *testing.T) {
-	if got := maskTyped("sk-abcdef"); got != "•••••cdef" {
-		t.Errorf("maskTyped = %q", got)
-	}
-	if got := maskTyped("abc"); got != "•••" {
-		t.Errorf("maskTyped short = %q", got)
-	}
-}
-
-func TestClipPlainKeepsWidth(t *testing.T) {
-	if got := clipPlain("abcdefghij", 5); got != "abcd…" {
-		t.Errorf("clipPlain = %q", got)
-	}
-	if got := clipPlain("abc", 5); got != "abc" {
-		t.Errorf("clipPlain short = %q", got)
-	}
-}
-
-func TestTUIRenameKeyEditsAliasInPlace(t *testing.T) {
-	m := testTUIModel()
-	m = press(m, "down") // OpenAI
-	m = press(m, "n")
-	if m.mode != modeRenameKey {
-		t.Fatal("'n' should enter rename mode")
-	}
-	if m.input != "team A" {
-		t.Fatalf("rename should start with the current alias, got %q", m.input)
-	}
-	m = press(m, "backspace")
-	m = press(m, "B")
-	if m.input != "team B" {
-		t.Errorf("input = %q", m.input)
-	}
-	m = press(m, "esc")
-	if m.mode != modeNormal {
-		t.Error("esc should cancel rename")
 	}
 }

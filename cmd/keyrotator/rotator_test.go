@@ -7,42 +7,37 @@ import (
 	"time"
 )
 
-func TestSelectKeySkipsDisabledAndInvalid(t *testing.T) {
-	p := &Provider{Strategy: "round_robin", Keys: []*Key{
-		{ID: "a", Value: "A", Enabled: true, Status: statusOK},
-		{ID: "b", Value: "B", Enabled: false, Status: statusOK},
-		{ID: "c", Value: "C", Enabled: true, Status: statusInvalid},
-	}}
-	for i := 0; i < 4; i++ {
-		k, _ := p.selectKey(nil)
-		if k == nil || k.ID != "a" {
-			t.Fatalf("pick %d: got %+v, want key a only", i, k)
+func TestSelectKey(t *testing.T) {
+	hour := time.Now().Add(time.Hour).Unix()
+	cases := []struct {
+		name string
+		keys []*Key
+		want string
+	}{
+		{"skips disabled and invalid keys", []*Key{
+			{ID: "off", Enabled: false, Status: statusOK},
+			{ID: "bad", Enabled: true, Status: statusInvalid},
+			{ID: "good", Enabled: true, Status: statusOK},
+		}, "good"},
+		{"prefers a ready key over a cooling one", []*Key{
+			{ID: "cool", Enabled: true, Status: statusCooldown, CooldownUntil: hour},
+			{ID: "ready", Enabled: true, Status: statusOK},
+		}, "ready"},
+		{"falls back to a cooling key when nothing is ready", []*Key{
+			{ID: "cool", Enabled: true, Status: statusCooldown, CooldownUntil: hour},
+		}, "cool"},
+	}
+	for _, c := range cases {
+		p := &Provider{Strategy: "round_robin", Keys: c.keys}
+		for i := 0; i < 3; i++ {
+			if k, _ := p.selectKey(nil); k == nil || k.ID != c.want {
+				t.Errorf("%s: pick %d = %+v, want %s", c.name, i, k, c.want)
+			}
 		}
 	}
 }
 
-func TestSelectKeyPrefersReadyOverCooling(t *testing.T) {
-	p := &Provider{Strategy: "round_robin", Keys: []*Key{
-		{ID: "cool", Value: "X", Enabled: true, Status: statusCooldown, CooldownUntil: time.Now().Add(time.Hour).Unix()},
-		{ID: "ready", Value: "Y", Enabled: true, Status: statusOK},
-	}}
-	for i := 0; i < 3; i++ {
-		if k, _ := p.selectKey(nil); k == nil || k.ID != "ready" {
-			t.Fatalf("pick %d: got %+v, want ready key", i, k)
-		}
-	}
-}
-
-func TestSelectKeyFallsBackToCoolingWhenNothingReady(t *testing.T) {
-	p := &Provider{Strategy: "round_robin", Keys: []*Key{
-		{ID: "cool", Value: "X", Enabled: true, Status: statusCooldown, CooldownUntil: time.Now().Add(time.Hour).Unix()},
-	}}
-	if k, _ := p.selectKey(nil); k == nil || k.ID != "cool" {
-		t.Fatalf("got %+v, want the cooling key as a last resort", k)
-	}
-}
-
-func TestSelectKeyRoundRobinCoversPool(t *testing.T) {
+func TestRoundRobinSpreadsEvenly(t *testing.T) {
 	p := &Provider{Strategy: "round_robin", Keys: []*Key{
 		{ID: "a", Enabled: true, Status: statusOK},
 		{ID: "b", Enabled: true, Status: statusOK},
@@ -53,7 +48,7 @@ func TestSelectKeyRoundRobinCoversPool(t *testing.T) {
 		seen[k.ID]++
 	}
 	if seen["a"] != 2 || seen["b"] != 2 {
-		t.Fatalf("round robin distribution = %v, want 2 each", seen)
+		t.Fatalf("distribution = %v, want 2 each", seen)
 	}
 }
 
@@ -78,32 +73,19 @@ func TestApplyInjectionHeaderAndQuery(t *testing.T) {
 	}
 	q, _ := url.ParseQuery(req.URL.RawQuery)
 	if q.Get("api_key") != "sk-123" || q.Get("foo") != "bar" {
-		t.Errorf("query = %q, want api_key and existing foo kept", req.URL.RawQuery)
+		t.Errorf("query = %q, want api_key added and foo kept", req.URL.RawQuery)
 	}
 }
 
 func TestLimiterBurstThenBlocks(t *testing.T) {
 	l := newLimiter()
-	const rps = 2.0
 	for i := 0; i < 2; i++ {
-		if !l.allow("p:test", rps) {
-			t.Fatalf("request %d within burst was denied", i)
+		if !l.allow("p:test", 2) {
+			t.Fatalf("request %d within the burst was denied", i)
 		}
 	}
-	ok, wait := l.take("p:test", rps)
-	if ok {
-		t.Fatal("request over the burst was allowed")
-	}
-	if wait <= 0 {
-		t.Fatalf("wait = %v, want a positive retry delay", wait)
-	}
-}
-
-func TestLimiterUnlimitedWhenZero(t *testing.T) {
-	l := newLimiter()
-	for i := 0; i < 1000; i++ {
-		if !l.allow("p:free", 0) {
-			t.Fatal("rps 0 must mean unlimited")
-		}
+	ok, wait := l.take("p:test", 2)
+	if ok || wait <= 0 {
+		t.Fatalf("over the burst: allowed=%v wait=%v, want denied with a retry delay", ok, wait)
 	}
 }

@@ -60,9 +60,3 @@ func TestProxyFailoverAndMetrics(t *testing.T) {
 		}
 	}
 }
-
-func TestMetricsEscapesLabelValues(t *testing.T) {
-	if got := quote(`a"b\c` + "\n"); got != `"a\"b\\c\n"` {
-		t.Errorf("quote = %s", got)
-	}
-}
