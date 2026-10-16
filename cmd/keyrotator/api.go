@@ -81,6 +81,9 @@ func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"logs": a.logs.List()})
 	case len(seg) == 1 && seg[0] == "settings" && (r.Method == http.MethodPost || r.Method == http.MethodPut):
 		a.postSettings(w, r)
+	case len(seg) == 1 && seg[0] == "shutdown" && r.Method == http.MethodPost:
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "shutting down"})
+		a.Shutdown()
 	case len(seg) == 1 && seg[0] == "autostart" && r.Method == http.MethodPost:
 		a.postAutostart(w, r)
 	case len(seg) == 1 && seg[0] == "providers" && r.Method == http.MethodPost:

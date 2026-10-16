@@ -18,6 +18,8 @@ import (
 
 // App wires the store, the outgoing HTTP client and the request log together.
 type App struct {
+	quit       chan struct{} // closed by Shutdown, e.g. from the admin API
+	quitOnce   sync.Once
 	store      *Store
 	logs       *LogBuffer
 	client     *http.Client
@@ -52,6 +54,7 @@ func NewApp(configPath, listenOverride string) (*App, error) {
 	return &App{
 		store:   store,
 		logs:    &LogBuffer{max: 500},
+		quit:    make(chan struct{}),
 		limits:  newLimiter(),
 		metrics: newMetrics(),
 		listen:  addr,
@@ -69,6 +72,17 @@ func NewApp(configPath, listenOverride string) (*App, error) {
 
 // Run serves until stop is closed, then shuts down gracefully.
 func (a *App) Run(stop <-chan struct{}) error {
+	// Stop on a signal or on Shutdown, whichever comes first.
+	merged := make(chan struct{})
+	go func() {
+		select {
+		case <-stop:
+		case <-a.quit:
+		}
+		close(merged)
+	}()
+	stop = merged
+
 	mux := http.NewServeMux()
 	a.routes(mux)
 
@@ -323,4 +337,10 @@ func (a *App) testAndRecord(p *Provider, k *Key) (int, string) {
 		p.mu.Unlock()
 	}
 	return code, msg
+}
+
+// Shutdown asks a running server to stop gracefully. It is safe to call more
+// than once, and from any goroutine, including the admin API.
+func (a *App) Shutdown() {
+	a.quitOnce.Do(func() { close(a.quit) })
 }

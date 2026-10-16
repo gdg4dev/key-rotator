@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+	"time"
+)
 
 func TestExposedWithoutAuth(t *testing.T) {
 	open := Settings{}
@@ -24,5 +28,31 @@ func TestExposedWithoutAuth(t *testing.T) {
 		if got := exposedWithoutAuth(c.addr, c.st); got != c.want {
 			t.Errorf("exposedWithoutAuth(%q, %+v) = %v, want %v", c.addr, c.st, got, c.want)
 		}
+	}
+}
+
+func TestShutdownStopsRun(t *testing.T) {
+	app, err := NewApp(filepath.Join(t.TempDir(), "config.json"), "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- app.Run(make(chan struct{})) }()
+
+	// Wait for the listener to come up before asking it to stop.
+	deadline := time.Now().Add(5 * time.Second)
+	for app.Addr() == "127.0.0.1:0" && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	app.Shutdown()
+	app.Shutdown() // a second call must not panic
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Run returned %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not return after Shutdown")
 	}
 }

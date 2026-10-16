@@ -37,6 +37,7 @@ type cliClient struct {
 	token     string
 	json      bool
 	httpc     *http.Client
+	cfgPath   string // config file the server uses; start/stop keep their files beside it
 }
 
 // cliCommands is the set of leading words that select the management CLI.
@@ -46,7 +47,7 @@ var cliCommands = map[string]bool{
 	"on": true, "enable": true, "off": true, "disable": true,
 	"url": true, "keys": true, "add-key": true, "rm-key": true,
 	"key-on": true, "key-off": true, "test": true, "token": true, "settings": true, "alias": true,
-	"tui": true,
+	"tui": true, "start": true, "stop": true, "status": true,
 }
 
 // valueFlags are the flags that consume the following argument unless they are
@@ -148,6 +149,12 @@ func (c *cliClient) dispatch(cmd string, args []string, flags map[string]string)
 		return c.cmdAlias(args)
 	case "tui":
 		return runTUI(c)
+	case "start":
+		return c.cmdStart()
+	case "stop":
+		return c.cmdStop()
+	case "status":
+		return c.cmdStatus()
 	}
 	return -1
 }
@@ -236,10 +243,11 @@ func newCLIClient(o *cliOpts) (*cliClient, error) {
 		token = cfg.AdminToken
 	}
 	return &cliClient{
-		base:  httpBase(addr),
-		token: token,
-		json:  o.json,
-		httpc: &http.Client{Timeout: 60 * time.Second},
+		cfgPath: path,
+		base:    httpBase(addr),
+		token:   token,
+		json:    o.json,
+		httpc:   &http.Client{Timeout: 60 * time.Second},
 	}, nil
 }
 
@@ -954,6 +962,9 @@ commands:
                                   token set <value>, token clear)
   settings                        show global settings
   tui                             full-screen terminal dashboard (q to quit)
+  start                           run in the background (survives closing the terminal)
+  stop                            stop the background server
+  status                          show whether it is running
 
   A <provider> may be given as its id, its name, or an unambiguous id prefix.
 

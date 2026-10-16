@@ -473,7 +473,7 @@ async function load(){
   } catch(e){
     $('#status').textContent = 'offline';
     $('#dot').className = 'dot off';
-    toast('Load failed: ' + e.message, true);
+    toast(e.message === "cannot reach server" ? "KeyRotator is not running. Start it with: keyrotator start" : "Load failed: " + e.message, true);
   }
 }
 

@@ -90,6 +90,23 @@ Send `X-Rotator-Key: <label-or-id>` on a request to pin one specific key.
 
 ---
 
+## Run in the background
+
+A server started in a terminal stops when that terminal closes. To keep it running:
+
+```powershell
+.\bin\keyrotator.exe start     # Windows
+.\bin\keyrotator.exe status
+.\bin\keyrotator.exe stop
+```
+
+```sh
+./bin/keyrotator start        # macOS and Linux
+```
+
+`start` launches a detached process. Its log is `keyrotator.log` and its pid is `keyrotator.pid`, both next to
+the config file. For a server that starts at login, use the **Start at login** switch in Settings.
+
 ## Run as an always-on Windows service (auto-start on boot)
 
 Requires an **Administrator** terminal (only for install/uninstall — the app itself runs as a normal user).
@@ -162,6 +179,9 @@ and the admin token — in the same config file, so there is no extra setup:
 | `token [show\|gen\|set <value>\|clear]` | manage the global proxy token |
 | `settings` | show global settings |
 | `tui` | full-screen terminal dashboard (see below) |
+| `start` | run in the background; keeps running after the terminal closes |
+| `stop` | stop the background server (graceful; saves the config) |
+| `status` | show whether it is running, its pid and config file |
 
 `<provider>` may be an id, a name, or an unambiguous id prefix. Global flags may appear anywhere:
 `-config PATH`, `-addr ADDR`, `-admin-token T` (or `KEYROTATOR_ADMIN_TOKEN`), `-json`.
