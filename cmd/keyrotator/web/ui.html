@@ -1855,6 +1855,10 @@ document.addEventListener('change', (ev) => {
   refreshForm(panel);
 });
 document.addEventListener('input', (ev) => {
+  // A menu fires "input" before "change". Redrawing here would reset a
+  // "+ New …" pick before the change handler sees it, so menus are left to
+  // the change handler.
+  if (ev.target.tagName === 'SELECT') return;
   const panel = ev.target.closest && ev.target.closest('.panel');
   if (panel) refreshForm(panel);
 });
