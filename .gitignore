@@ -1,0 +1,20 @@
+# Build output
+bin/
+*.exe
+*.exe~
+*.test
+*.out
+
+# Local runtime state (keys live here; never commit them)
+config.json
+config.json.corrupt-*
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local agent settings
+.claude/settings.local.json

@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Key Rotator</title>
+<style>
+  :root{
+    --bg:#090c12;
+    --surface:#11151d;
+    --surface-2:#151a24;
+    --surface-3:#1b2230;
+    --line:#232a37;
+    --line-2:#2e3848;
+    --text:#e9edf5;
+    --dim:#98a2b6;
+    --faint:#68738a;
+    --accent:#5b8cff;
+    --accent-2:#87abff;
+    --ok:#37d67a;
+    --warn:#f5b544;
+    --err:#ff6b6b;
+    --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font:14px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  body{background-image:radial-gradient(900px 420px at 78% -12%,rgba(91,140,255,.10),transparent 62%),
+    radial-gradient(700px 380px at 6% -8%,rgba(55,214,122,.05),transparent 60%);
+    background-attachment:fixed}
+  a{color:var(--accent-2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .mono{font-family:var(--mono)}
+  .muted{color:var(--dim)}
+  .faint{color:var(--faint)}
+  .small{font-size:12px}
+  .hide{display:none !important}
+  .spacer{flex:1}
+
+  /* ---------- controls ---------- */
+  button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line-2);
+    background:var(--surface-3);color:var(--text);padding:7px 13px;line-height:1.2;
+    transition:background .14s,border-color .14s,color .14s,transform .06s;white-space:nowrap}
+  button:hover{border-color:#3a465c;background:#222b3c}
+  button:active{transform:translateY(1px)}
+  button.primary{background:linear-gradient(180deg,var(--accent-2),var(--accent));border-color:var(--accent);
+    color:#06132e;font-weight:650;box-shadow:0 6px 18px -8px rgba(91,140,255,.9)}
+  button.primary:hover{filter:brightness(1.07);background:linear-gradient(180deg,var(--accent-2),var(--accent))}
+  button.ghost{background:transparent;border-color:var(--line)}
+  button.ghost:hover{background:var(--surface-2)}
+  button.danger{color:var(--err);border-color:#40262d;background:transparent}
+  button.danger:hover{background:#2a171c;border-color:#5a3038}
+  button.tiny{padding:4px 9px;font-size:12px;border-radius:7px}
+  button.icon{padding:4px 8px;font-size:13px;line-height:1;border-radius:7px;color:var(--faint)}
+  button.icon:hover{color:var(--err);border-color:#5a3038;background:#2a171c}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  input,select{font:inherit;background:#0b101a;border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:8px 11px;outline:none;width:100%;transition:border-color .14s,box-shadow .14s}
+  input::placeholder{color:#5a6478}
+  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,140,255,.15)}
+  input:disabled{opacity:.5;background:#0a0e16}
+  select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#7d879b 50%),linear-gradient(135deg,#7d879b 50%,transparent 50%);
+    background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;
+    background-repeat:no-repeat;padding-right:30px}
+  label.lbl{display:block;font-size:11px;color:var(--dim);margin:0 0 5px;letter-spacing:.35px;text-transform:uppercase}
+  code{font-family:var(--mono)}
+
+  /* ---------- shell ---------- */
+  .wrap{max-width:1200px;margin:0 auto;padding:0 22px 60px}
+  header.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:14px 0;margin-bottom:22px;background:rgba(9,12,18,.82);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:650;letter-spacing:.2px}
+  .brand .mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(150deg,rgba(91,140,255,.28),rgba(91,140,255,.06));
+    border:1px solid rgba(91,140,255,.35);color:var(--accent-2)}
+  .brand b{color:var(--accent-2);font-weight:650}
+
+  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);
+    border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--dim)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(55,214,122,.16)}
+  .dot.off{background:var(--err);box-shadow:0 0 0 3px rgba(255,107,107,.16)}
+  .addr{font-family:var(--mono);font-size:12px;color:var(--dim)}
+
+  /* ---------- stat cards ---------- */
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}
+  .metric{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+  .metric .v{font-size:22px;font-weight:650;letter-spacing:-.3px}
+  .metric .k{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
+  .metric.ok .v{color:var(--ok)} .metric.warn .v{color:var(--warn)} .metric.err .v{color:var(--err)}
+
+  /* ---------- cards ---------- */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-bottom:16px}
+  .card.provider{transition:border-color .16s}
+  .card.provider:hover{border-color:var(--line-2)}
+  .card h2{margin:0 0 14px;font-size:14px;font-weight:650;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+
+  .p-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .p-name{font-weight:650;font-size:16px;letter-spacing:.1px}
+  .p-actions{display:flex;gap:7px;flex-wrap:wrap}
+  .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px}
+  .tag{display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:7px;padding:3px 9px;font-size:11px;color:var(--dim);font-family:var(--mono)}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;
+    font-size:11px;font-weight:600;letter-spacing:.2px}
+  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.9}
+  .b-ok{background:rgba(55,214,122,.13);color:var(--ok)}
+  .b-cd{background:rgba(245,181,68,.14);color:var(--warn)}
+  .b-bad{background:rgba(255,107,107,.13);color:var(--err)}
+  .b-off{background:var(--surface-3);color:var(--faint)}
+
+  .proxy{display:flex;align-items:center;gap:8px;margin-top:12px;background:#0b101a;
+    border:1px solid var(--line);border-radius:10px;padding:7px 9px 7px 12px}
+  .proxy code{flex:1;font-size:12px;color:var(--dim);overflow:auto;white-space:nowrap}
+
+  .fields{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .rule-chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:8px;padding:4px 10px;font-size:12px;font-family:var(--mono);color:var(--dim)}
+  .rc-in{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);
+    border-right:1px solid var(--line-2);padding-right:7px}
+  .rc-name{color:var(--text)}
+  .rc-eq{color:var(--faint)}
+  .rc-val{color:var(--accent-2)}
+  .rc-val .k{color:var(--ok)}
+  .rc-val .faint{color:var(--faint)}
+
+  /* ---------- tables ---------- */
+  .tbl-wrap{margin-top:14px}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--faint);
+    font-weight:600;padding:0 10px 8px}
+  td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:middle;font-size:13px}
+  tbody tr:hover{background:rgba(255,255,255,.017)}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim)}
+  .kval{display:inline-block;max-width:250px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;vertical-align:middle;color:var(--dim)}
+  td.right{text-align:right;white-space:nowrap}
+
+  .keybar{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
+  .keybar input{flex:1;min-width:220px}
+
+  /* ---------- editor ---------- */
+  .sub{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .rules-scroll{overflow-x:auto;margin-top:4px;padding-bottom:2px}
+  .rules-grid{min-width:880px}
+  .rules-head,.rule{display:grid;
+    grid-template-columns:26px 88px minmax(120px,1.1fr) 118px minmax(110px,1.15fr) minmax(88px,.85fr) minmax(88px,.85fr) 32px;
+    gap:8px;align-items:center}
+  .rules-head{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;padding:0 2px 7px}
+  .rule{margin-bottom:8px}
+  .rule.off{opacity:.55}
+  .rule input,.rule select{padding:7px 10px;font-size:12.5px}
+  .rule select{font-size:12px}
+  .rule .mono{font-size:12px}
+  .rule .tick{display:grid;place-items:center;margin:0}
+  .rule input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  .hint{margin-top:10px;font-size:12px;color:var(--faint);line-height:1.7}
+  .hint code{background:#0b101a;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--dim)}
+  .sep{height:1px;background:var(--line);margin:15px 0}
+
+  /* ---------- log ---------- */
+  .log{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:11px}
+  .log table{min-width:640px}
+  .log th{padding:9px 10px 8px;background:var(--surface-2);position:sticky;top:0;z-index:1}
+  .log td{padding:7px 10px;font-size:12.5px}
+  .log tbody tr:hover{background:rgba(255,255,255,.025)}
+
+  .empty{color:var(--dim);padding:22px;text-align:center;font-size:13px}
+  .empty .big{font-size:15px;color:var(--text);margin-bottom:4px}
+
+  /* ---------- toast ---------- */
+  .toast{position:fixed;right:20px;bottom:20px;z-index:50;background:var(--surface-3);
+    border:1px solid var(--line-2);border-left:3px solid var(--accent);border-radius:11px;
+    padding:11px 15px;max-width:400px;font-size:13px;box-shadow:0 16px 40px -12px rgba(0,0,0,.75);
+    opacity:0;transform:translateY(10px);transition:.22s cubic-bezier(.2,.8,.3,1);pointer-events:none}
+  .toast.show{opacity:1;transform:none}
+  .toast.err{border-left-color:var(--err)}
+  .toast.ok{border-left-color:var(--ok)}
+
+  footer.foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--faint);
+    font-size:12px;padding:6px 2px}
+
+  @media (max-width:900px){
+    .metrics{grid-template-columns:repeat(2,1fr)}
+    .grid2,.grid3{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
+        </svg>
+      </span>
+      API Key <b>Rotator</b>
+    </div>
+    <span class="pill"><span class="dot" id="dot"></span><span id="status">connecting…</span></span>
+    <span class="pill addr" id="addr">—</span>
+    <div class="spacer"></div>
+    <button id="btn-new" class="primary">+ Provider</button>
+    <button id="btn-settings" class="ghost">Settings</button>
+    <button id="btn-refresh" class="ghost">Refresh</button>
+  </header>
+
+  <div id="stats" class="metrics hide"></div>
+  <section id="settings" class="card hide"></section>
+  <section id="newprovider" class="card hide"></section>
+  <div id="main"></div>
+
+  <section class="card">
+    <h2>Recent activity <span class="faint small" id="logcount"></span></h2>
+    <div class="log" id="logs"><div class="empty">No requests yet.</div></div>
+  </section>
+
+  <footer class="foot" id="footer"></footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+let S = { providers: [], proxyBase: '', addr: '', version: '', configPath: '',
+          maxRetries: 3, cooldownSec: 60, adminTokenSet: false,
+          proxyToken: '', rateLimitRPS: 0, keyRateLimitRPS: 0 };
+let LOGS = [];
+const reveal = {};
+const keyEdit = {};
+const providerEdit = {};
+const keyDraft = {};
+let settingsOpen = false, newOpen = false;
+let logSig = '';
+
+const token = () => localStorage.getItem('kr_token') || '';
+
+async function api(path, method='GET', body){
+  const headers = { 'Content-Type':'application/json' };
+  if (token()) headers['X-Admin-Token'] = token();
+  let res;
+  try {
+    res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  } catch(e){ throw new Error('cannot reach server'); }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch(e){ data = { error: text }; }
+  if (!res.ok) throw new Error((data && data.error) || res.statusText);
+  return data;
+}
+
+let toastTimer = null;
+function toast(msg, kind){
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (kind === true || kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> el.className = 'toast', 3200);
+}
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+const rpsText = v => String(Math.round(v * 1000) / 1000);
+function rel(ts){
+  if (!ts) return '—';
+  const d = Math.floor(Date.now()/1000) - ts;
+  if (d < 5) return 'just now';
+  if (d < 60) return d + 's ago';
+  if (d < 3600) return Math.floor(d/60) + 'm ago';
+  if (d < 86400) return Math.floor(d/3600) + 'h ago';
+  return Math.floor(d/86400) + 'd ago';
+}
+function statusBadge(k){
+  if (!k.enabled) return '<span class="badge b-off">disabled</span>';
+  const now = Math.floor(Date.now()/1000);
+  if (k.status === 'cooldown'){
+    const left = k.cooldownUntil - now;
+    return '<span class="badge b-cd">cooling ' + (left > 0 ? left + 's' : '…') + '</span>';
+  }
+  switch (k.status){
+    case 'invalid': return '<span class="badge b-bad">invalid</span>';
+    case 'error':   return '<span class="badge b-bad">error</span>';
+    case 'ok':      return '<span class="badge b-ok">ok</span>';
+    default:        return '<span class="badge b-off">' + esc(k.status || 'unknown') + '</span>';
+  }
+}
+const focusedIn = (sel) => {
+  const el = document.activeElement;
+  const root = document.querySelector(sel);
+  return !!(el && root && root.contains(el) && ['INPUT','TEXTAREA','SELECT'].includes(el.tagName));
+};
+
+// ---------- data loading (never rewrites a form you are typing in) ----------
+
+async function load(){
+  try {
+    const [st, lg] = await Promise.all([ api('/api/state'), api('/api/logs') ]);
+    S = st; LOGS = lg.logs || [];
+    $('#status').textContent = 'online · v' + S.version;
+    $('#dot').className = 'dot';
+    $('#addr').textContent = S.addr;
+    $('#footer').innerHTML = 'config file: <span class="mono">' + esc(S.configPath) + '</span>' +
+      ' &nbsp;·&nbsp; proxy namespace <span class="mono">' + esc(S.proxyBase) + '&lt;provider&gt;/…</span>' +
+      ' &nbsp;·&nbsp; manage from a terminal with <span class="mono">keyrotator help</span>';
+    renderStats();
+    updateProviders();
+    updateLogs();
+  } catch(e){
+    $('#status').textContent = 'offline';
+    $('#dot').className = 'dot off';
+    toast('Load failed: ' + e.message, true);
+  }
+}
+
+function renderStats(){
+  let keys = 0, ok = 0, bad = 0, cool = 0;
+  for (const p of S.providers) for (const k of p.keys || []){
+    keys++;
+    if (!k.enabled) continue;
+    if (k.status === 'ok') ok++;
+    else if (k.status === 'cooldown') cool++;
+    else if (k.status === 'invalid' || k.status === 'error') bad++;
+  }
+  const el = $('#stats');
+  el.classList.remove('hide');
+  const cell = (cls, v, k) => '<div class="metric ' + cls + '"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>';
+  el.innerHTML =
+    cell('', S.providers.length, 'providers') +
+    cell('', keys, 'keys') +
+    cell('ok', ok, 'healthy') +
+    cell('warn', cool, 'cooling') +
+    cell('err', bad, 'attention');
+}
+
+// ---------- settings ----------
+
+function renderSettings(){
+  const el = $('#settings');
+  if (!settingsOpen){ el.classList.add('hide'); el.innerHTML = ''; return; }
+  el.classList.remove('hide');
+  const proxySet = !!S.proxyToken;
+  el.innerHTML =
+    '<h2>Settings</h2>' +
+    '<div class="grid3">' +
+      '<div><label class="lbl">Max retries per request</label><input id="set-retries" type="number" min="1" max="10" value="' + S.maxRetries + '"></div>' +
+      '<div><label class="lbl">Cooldown after errors (s)</label><input id="set-cool" type="number" min="1" value="' + S.cooldownSec + '"></div>' +
+      '<div><label class="lbl">Admin token ' + (S.adminTokenSet ? '<span class="faint">(set — blank keeps it)</span>' : '<span class="faint">(optional)</span>') + '</label>' +
+        '<input id="set-token" type="password" placeholder="' + (S.adminTokenSet ? '••••••••' : 'none') + '"></div>' +
+    '</div>' +
+    '<div class="grid3" style="margin-top:12px">' +
+      '<div><label class="lbl">Proxy auth token ' + (proxySet ? '<span class="faint">(set — blank keeps it)</span>' : '<span class="faint">(optional)</span>') + '</label>' +
+        '<div style="display:flex;gap:8px">' +
+          '<input id="set-proxy-token" class="mono" placeholder="' + (proxySet ? '••••••••' : 'no auth required') + '" spellcheck="false">' +
+          '<button type="button" class="ghost" id="set-proxy-gen" title="Generate a random token">Gen</button>' +
+          (proxySet ? '<button type="button" class="ghost" id="set-proxy-clear" title="Require no token">Clear</button>' : '') +
+        '</div></div>' +
+      '<div><label class="lbl">Provider rate limit (req/s)</label><input id="set-rate" type="number" min="0" step="0.1" value="' + (S.rateLimitRPS || 0) + '" placeholder="0 = unlimited"></div>' +
+      '<div><label class="lbl">Per-key rate limit (req/s)</label><input id="set-key-rate" type="number" min="0" step="0.1" value="' + (S.keyRateLimitRPS || 0) + '" placeholder="0 = unlimited"></div>' +
+    '</div>' +
+    '<div class="sep"></div>' +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<button class="primary" id="set-save">Save settings</button>' +
+      '<span class="faint small">With a proxy token set, every <span class="mono">/p/</span> URL must carry it. ' +
+      'Listen address <span class="mono">' + esc(S.addr) + '</span> is set at launch with <span class="mono">-listen</span>.</span>' +
+    '</div>';
+
+  let clearProxy = false;
+  $('#set-proxy-gen').onclick = () => {
+    const a = new Uint8Array(24);
+    crypto.getRandomValues(a);
+    $('#set-proxy-token').value = Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+    toast('Token generated — press Save settings', 'ok');
+  };
+  const clr = $('#set-proxy-clear');
+  if (clr) clr.onclick = () => { clearProxy = true; $('#set-proxy-token').value = ''; toast('Will clear the proxy token on save'); };
+
+  $('#set-save').onclick = async () => {
+    try {
+      const body = {
+        maxRetries: +$('#set-retries').value,
+        cooldownSec: +$('#set-cool').value,
+        rateLimitRPS: +$('#set-rate').value || 0,
+        keyRateLimitRPS: +$('#set-key-rate').value || 0,
+      };
+      const t = $('#set-token').value.trim();
+      if (t) body.adminToken = t;
+      const pt = $('#set-proxy-token').value.trim();
+      if (pt) body.proxyToken = pt;
+      else if (clearProxy) body.proxyToken = '';
+      await api('/api/settings', 'POST', body);
+      if (t) localStorage.setItem('kr_token', t);
+      toast('Settings saved', 'ok');
+      await load(); renderSettings();
+    } catch(e){ toast(e.message, true); }
+  };
+}
+
+// ---------- provider form (fields + injection rules) ----------
+
+function ruleRowHTML(r){
+  r = Object.assign({ enabled:true, in:'header', name:'', source:'key', value:'', prefix:'', suffix:'' }, r || {});
+  const src = r.source === 'static' ? 'static' : 'key';
+  const inOpts = ['header','query'].map(m =>
+    '<option value="' + m + '"' + (r.in === m ? ' selected' : '') + '>' + m + '</option>').join('');
+  const srcOpts = [['key','rotating key'],['static','fixed value']].map(([v,l]) =>
+    '<option value="' + v + '"' + (src === v ? ' selected' : '') + '>' + l + '</option>').join('');
+  const dis = src === 'static' ? '' : ' disabled';
+  return '<div class="rule' + (r.enabled === false ? ' off' : '') + '">' +
+    '<label class="tick"><input type="checkbox" data-rf="enabled"' + (r.enabled !== false ? ' checked' : '') + '></label>' +
+    '<select data-rf="in">' + inOpts + '</select>' +
+    '<input data-rf="name" placeholder="Authorization" value="' + esc(r.name) + '" spellcheck="false">' +
+    '<select data-rf="source">' + srcOpts + '</select>' +
+    '<input data-rf="value" placeholder="' + (src === 'static' ? 'fixed value' : '<rotating key>') + '" value="' + esc(r.value) + '"' + dis +
+      ' class="mono' + (src === 'static' ? '' : ' muted') + '" spellcheck="false">' +
+    '<input data-rf="prefix" class="mono" placeholder="—" value="' + esc(r.prefix) + '" spellcheck="false">' +
+    '<input data-rf="suffix" class="mono" placeholder="—" value="' + esc(r.suffix) + '" spellcheck="false">' +
+    '<button type="button" class="icon" data-act="del-rule" title="Remove this field">×</button>' +
+  '</div>';
+}
+
+function providerForm(p){
+  const def = { name:'', baseUrl:'', healthPath:'/models', strategy:'round_robin',
+                inject:[{ enabled:true, in:'header', name:'Authorization', source:'key', prefix:'Bearer ', suffix:'' }] };
+  p = p || def;
+  const rules = (p.inject && p.inject.length) ? p.inject
+    : [{ enabled:true, in:'header', name:'', source:'key', prefix:'', suffix:'' }];
+  const strat = ['round_robin','random','least_used'].map(s =>
+    '<option value="' + s + '"' + (p.strategy === s ? ' selected' : '') + '>' + s + '</option>').join('');
+  const rateVal = v => (v === null || v === undefined) ? '' : v;
+  return '<div class="grid3">' +
+      '<div><label class="lbl">Name</label><input data-f="name" value="' + esc(p.name) + '" placeholder="OpenAI main"></div>' +
+      '<div><label class="lbl">Base URL</label><input data-f="baseUrl" value="' + esc(p.baseUrl) + '" placeholder="https://api.openai.com/v1" spellcheck="false"></div>' +
+      '<div><label class="lbl">Strategy</label><select data-f="strategy">' + strat + '</select></div>' +
+    '</div>' +
+    '<div class="grid3" style="margin-top:12px">' +
+      '<div><label class="lbl">Health check path</label><input data-f="healthPath" value="' + esc(p.healthPath) + '" placeholder="/models" spellcheck="false"></div>' +
+      '<div><label class="lbl">Rate limit (req/s) <span class="faint">blank = global</span></label>' +
+        '<input data-f="rateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.rateLimitRPS) + '" placeholder="inherit"></div>' +
+      '<div><label class="lbl">Per-key rate (req/s) <span class="faint">blank = global</span></label>' +
+        '<input data-f="keyRateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.keyRateLimitRPS) + '" placeholder="inherit"></div>' +
+    '</div>' +
+    '<div class="grid2" style="margin-top:12px">' +
+      '<div><label class="lbl">Proxy token <span class="faint">blank = use the global token</span></label>' +
+        '<input data-f="proxyToken" class="mono" value="' + esc(p.proxyToken || '') + '" placeholder="none" spellcheck="false"></div>' +
+      '<div><label class="lbl">Rotation scope</label><input value="keys rotate on every in-flight request" disabled></div>' +
+    '</div>' +
+    '<div class="sub">' +
+      '<label class="lbl">Request fields &mdash; applied live, on every request</label>' +
+      '<div class="rules-scroll"><div class="rules-grid">' +
+        '<div class="rules-head"><span></span><span>in</span><span>field name</span><span>source</span><span>value</span><span>prefix</span><span>suffix</span><span></span></div>' +
+        '<div data-rules>' + rules.map(ruleRowHTML).join('') + '</div>' +
+      '</div></div>' +
+      '<div style="margin-top:10px"><button type="button" class="tiny" data-act="add-rule">+ Add field</button></div>' +
+      '<div class="hint">Each field can <b>rotate the seeded key</b> or send a <b>fixed value</b>. ' +
+      'The written value is <code>prefix + value + suffix</code> — affixes keep their exact spacing, so ' +
+      '<code>Bearer&nbsp;</code> must keep its trailing space.<br>' +
+      'Examples: <code>header · Authorization · rotating key · prefix "Bearer "</code> &nbsp;·&nbsp; ' +
+      '<code>query · api_key · rotating key</code> &nbsp;·&nbsp; <code>header · x-api-version · fixed value</code>.</div>' +
+    '</div>';
+}
+
+function readForm(root){
+  const out = {};
+  root.querySelectorAll('[data-f]').forEach(el => { out[el.dataset.f] = el.value.trim(); });
+  // Blank rate limits mean "inherit the global value", so drop them entirely.
+  ['rateLimitRPS', 'keyRateLimitRPS'].forEach(f => {
+    if (!(f in out)) return;
+    if (out[f] === '') delete out[f];
+    else out[f] = Number(out[f]);
+  });
+  const rules = [];
+  root.querySelectorAll('[data-rules] .rule').forEach(row => {
+    // Prefix/suffix keep their exact whitespace ("Bearer " must stay "Bearer ").
+    const raw = f => { const el = row.querySelector('[data-rf="' + f + '"]'); return el ? el.value : ''; };
+    const name = raw('name').trim();
+    if (!name) return;
+    rules.push({
+      enabled: row.querySelector('[data-rf="enabled"]').checked,
+      in: row.querySelector('[data-rf="in"]').value,
+      name: name,
+      source: row.querySelector('[data-rf="source"]').value,
+      value: raw('value').trim(),
+      prefix: raw('prefix'),
+      suffix: raw('suffix'),
+    });
+  });
+  out.inject = rules;
+  return out;
+}
+
+function syncSource(row){
+  const sel = row.querySelector('[data-rf="source"]');
+  const v = row.querySelector('[data-rf="value"]');
+  if (!sel || !v) return;
+  const isStatic = sel.value === 'static';
+  v.disabled = !isStatic;
+  v.classList.toggle('muted', !isStatic);
+  v.placeholder = isStatic ? 'fixed value' : '<rotating key>';
+}
+
+function renderNew(){
+  const el = $('#newprovider');
+  if (!newOpen){ el.classList.add('hide'); el.innerHTML = ''; return; }
+  el.classList.remove('hide');
+  el.innerHTML = '<h2>New provider</h2>' + providerForm() +
+    '<div class="sep"></div>' +
+    '<div style="display:flex;gap:8px"><button class="primary" id="np-save">Create provider</button>' +
+    '<button class="ghost" id="np-cancel">Cancel</button></div>';
+  $('#np-save').onclick = async () => {
+    const body = readForm(el);
+    if (!body.baseUrl){ toast('Base URL is required', true); return; }
+    try { await api('/api/providers', 'POST', body); newOpen = false; renderNew(); toast('Provider created', 'ok'); await load(); renderMain(); }
+    catch(e){ toast(e.message, true); }
+  };
+  $('#np-cancel').onclick = () => { newOpen = false; renderNew(); };
+}
+
+// ---------- provider list ----------
+
+function renderMain(){
+  const el = $('#main');
+  if (!S.providers.length){
+    el.innerHTML = '<div class="card"><div class="empty"><div class="big">No providers yet</div>' +
+      'Add one to start rotating keys across your requests. Backed by <span class="mono">' + esc(S.configPath) + '</span>.</div></div>';
+    return;
+  }
+  el.innerHTML = S.providers.map(providerCard).join('');
+  document.querySelectorAll('#main [data-act="key-value"]').forEach(inp => {
+    inp.oninput = () => { keyDraft[inp.dataset.id] = inp.value; };
+  });
+  document.querySelectorAll('#main [data-kid] [data-kf]').forEach(inp => {
+    const kid = inp.closest('[data-kid]').dataset.kid;
+    inp.oninput = () => { keyEdit[kid][inp.dataset.kf] = inp.value; };
+  });
+}
+
+// Patch live values in place so polling never disturbs focus or selection.
+function updateProviders(){
+  const cards = document.querySelectorAll('#main [data-card]');
+  if (cards.length !== S.providers.length){ softRenderMain(); return; }
+  for (const p of S.providers){
+    const card = document.querySelector('#main [data-card="' + p.id + '"]');
+    if (!card){ softRenderMain(); return; }
+    if (card.querySelectorAll('tbody tr[data-kid]').length !== (p.keys || []).length){ softRenderMain(); return; }
+    patchCard(card, p);
+  }
+}
+function softRenderMain(){
+  if (focusedIn('#main')) return;   // don't yank a form out from under the user
+  renderMain();
+}
+function setText(root, sel, txt){ const el = root.querySelector(sel); if (el) el.textContent = txt; }
+function patchCard(card, p){
+  const badge = card.querySelector('[data-p="badge"]');
+  if (badge){ badge.className = 'badge ' + (p.enabled ? 'b-ok' : 'b-off'); badge.textContent = p.enabled ? 'enabled' : 'disabled'; }
+  const tg = card.querySelector('[data-act="toggle-provider"]');
+  if (tg) tg.textContent = p.enabled ? 'Disable' : 'Enable';
+  for (const k of p.keys || []){
+    const row = card.querySelector('tr[data-kid="' + k.id + '"]');
+    if (!row) continue;
+    const st = row.querySelector('[data-k="status"]');
+    if (st) st.innerHTML = statusBadge(k);
+    setText(row, '[data-k="ok"]', String(k.success || 0));
+    setText(row, '[data-k="err"]', String(k.errors || 0));
+    setText(row, '[data-k="used"]', rel(k.lastUsed));
+  }
+}
+
+function ruleChips(p){
+  const on = (p.inject || []).filter(r => r.enabled);
+  if (!on.length) return '<span class="faint small">No fields enabled — the key is not injected anywhere.</span>';
+  return on.map(r => {
+    const val = (r.source === 'static')
+      ? (r.value ? esc(r.value) : '<span class="faint">empty</span>')
+      : '<span class="k">‹key›</span>';
+    return '<span class="rule-chip" title="' + esc(r.in + ' ' + r.name) + '">' +
+      '<span class="rc-in">' + esc(r.in) + '</span>' +
+      '<span class="rc-name">' + esc(r.name) + '</span>' +
+      '<span class="rc-eq">→</span>' +
+      '<span class="rc-val">' + esc(r.prefix) + val + esc(r.suffix) + '</span></span>';
+  }).join('');
+}
+
+function providerCard(p){
+  const editing = !!providerEdit[p.id];
+  const token = p.proxyToken || S.proxyToken || '';
+  const proxy = S.proxyBase + p.id + '/' + (token ? token + '/' : '');
+  const provRPS = (p.rateLimitRPS === null || p.rateLimitRPS === undefined) ? S.rateLimitRPS : p.rateLimitRPS;
+  const keyRPS = (p.keyRateLimitRPS === null || p.keyRateLimitRPS === undefined) ? S.keyRateLimitRPS : p.keyRateLimitRPS;
+  const keys = p.keys || [];
+  const rows = keys.map(k => keyRow(p, k)).join('');
+  const table = keys.length
+    ? '<div class="tbl-wrap"><table><thead><tr><th>Label</th><th>Key</th><th>Status</th><th>OK</th><th>Err</th><th>Last used</th><th></th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>'
+    : '<div class="empty" style="padding:16px">No keys yet — paste one below to start rotating.</div>';
+
+  const editBlock = editing
+    ? '<div class="sub">' + providerForm(p) +
+      '<div class="sep"></div>' +
+      '<div style="display:flex;gap:8px"><button class="primary tiny" data-act="save-provider" data-id="' + p.id + '">Save changes</button>' +
+      '<button class="tiny ghost" data-act="cancel-provider" data-id="' + p.id + '">Cancel</button></div></div>'
+    : '';
+
+  const draft = keyDraft[p.id] || '';
+  const addKey = '<div class="keybar">' +
+      '<input data-act="key-value" data-id="' + p.id + '" placeholder="Paste API key (sk-…)" value="' + esc(draft) + '" spellcheck="false" autocomplete="off">' +
+      '<button class="primary tiny" data-act="add-key" data-id="' + p.id + '">Add key</button>' +
+      '<button class="tiny ghost" data-act="test-provider" data-id="' + p.id + '">Test all</button></div>';
+
+  return '<article class="card provider" data-card="' + p.id + '">' +
+    '<div class="p-head">' +
+      '<span class="p-name">' + esc(p.name) + '</span>' +
+      '<span class="badge ' + (p.enabled ? 'b-ok' : 'b-off') + '" data-p="badge">' + (p.enabled ? 'enabled' : 'disabled') + '</span>' +
+      '<span class="tag">' + esc(p.strategy) + '</span>' +
+      '<span class="tag">health ' + esc(p.healthPath) + '</span>' +
+      '<div class="spacer"></div>' +
+      '<span class="p-actions">' +
+        '<button class="tiny ghost" data-act="toggle-provider" data-id="' + p.id + '">' + (p.enabled ? 'Disable' : 'Enable') + '</button>' +
+        '<button class="tiny ghost" data-act="edit-provider" data-id="' + p.id + '">' + (editing ? 'Close' : 'Edit') + '</button>' +
+        '<button class="tiny danger" data-act="del-provider" data-id="' + p.id + '" data-name="' + esc(p.name) + '">Delete</button>' +
+      '</span>' +
+    '</div>' +
+    '<div class="meta">' +
+      '<span class="faint small">upstream</span>' +
+      '<span class="mono small muted">' + esc(p.baseUrl) + '</span>' +
+      (token ? '<span class="tag" title="Requests must carry the proxy token">secured</span>' : '') +
+      (provRPS > 0 ? '<span class="tag" title="Provider-wide rate limit">' + rpsText(provRPS) + ' req/s</span>' : '') +
+      (keyRPS > 0 ? '<span class="tag" title="Per-key rate limit">' + rpsText(keyRPS) + ' req/s/key</span>' : '') +
+    '</div>' +
+    '<div class="fields">' + ruleChips(p) + '</div>' +
+    '<div class="proxy"><code>' + esc(proxy) + '</code>' +
+      '<button class="tiny ghost" data-act="copy" data-copy="' + esc(proxy) + '">Copy</button></div>' +
+    (token ? '<div class="faint small" style="margin-top:6px">Requests must carry this token in the path, or send an ' +
+      '<span class="mono">X-Rotator-Token</span> / <span class="mono">Authorization: Bearer</span> header, or <span class="mono">?token=</span>.</div>' : '') +
+    editBlock + table + addKey +
+    '</article>';
+}
+
+function keyRow(p, k){
+  const editing = !!keyEdit[k.id];
+  if (editing){
+    const d = keyEdit[k.id];
+    return '<tr data-kid="' + k.id + '">' +
+      '<td colspan="7"><div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<input data-kf="label" value="' + esc(d.label) + '" placeholder="label" style="max-width:170px">' +
+        '<input data-kf="value" value="' + esc(d.value) + '" placeholder="value" style="flex:1;min-width:200px" spellcheck="false">' +
+        '<button class="primary tiny" data-act="save-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Save</button>' +
+        '<button class="tiny ghost" data-act="cancel-key" data-kid="' + k.id + '">Cancel</button>' +
+      '</div></td></tr>';
+  }
+  const shown = reveal[k.id] ? k.value : (k.value ? k.value.slice(0,4) + '…' + k.value.slice(-4) : '');
+  return '<tr data-kid="' + k.id + '">' +
+    '<td>' + esc(k.label || '—') + '</td>' +
+    '<td><span class="kval mono">' + esc(shown) + '</span> ' +
+      '<button class="tiny ghost" data-act="reveal" data-kid="' + k.id + '">' + (reveal[k.id] ? 'hide' : 'show') + '</button></td>' +
+    '<td><span data-k="status">' + statusBadge(k) + '</span></td>' +
+    '<td class="num" data-k="ok">' + (k.success || 0) + '</td>' +
+    '<td class="num" data-k="err">' + (k.errors || 0) + '</td>' +
+    '<td class="num muted" data-k="used">' + rel(k.lastUsed) + '</td>' +
+    '<td class="right">' +
+      '<button class="tiny ghost" data-act="toggle-key" data-pid="' + p.id + '" data-kid="' + k.id + '">' + (k.enabled ? 'disable' : 'enable') + '</button> ' +
+      '<button class="tiny ghost" data-act="test-key" data-pid="' + p.id + '" data-kid="' + k.id + '">test</button> ' +
+      '<button class="tiny ghost" data-act="edit-key" data-pid="' + p.id + '" data-kid="' + k.id + '">edit</button> ' +
+      '<button class="tiny ghost" data-act="reset-key" data-pid="' + p.id + '" data-kid="' + k.id + '">reset</button> ' +
+      '<button class="icon" data-act="del-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Delete key">×</button>' +
+    '</td></tr>';
+}
+
+// ---------- activity log ----------
+
+function updateLogs(){
+  const sig = LOGS.length + '|' + (LOGS[0] ? LOGS[0].time + '|' + LOGS[0].code + '|' + LOGS[0].path : '');
+  $('#logcount').textContent = LOGS.length ? '(' + LOGS.length + ')' : '';
+  if (sig === logSig) return;
+  logSig = sig;
+  const el = $('#logs');
+  if (!LOGS.length){ el.innerHTML = '<div class="empty">No requests yet — send one through a proxy URL to see it here.</div>'; return; }
+  const rows = LOGS.map(l => {
+    const t = new Date(l.time * 1000).toLocaleTimeString();
+    const key = l.key ? esc(l.key) : '<span class="faint">—</span>';
+    return '<tr><td class="faint">' + t + '</td>' +
+      '<td><span class="badge ' + (l.ok ? 'b-ok' : 'b-bad') + '">' + l.code + '</span></td>' +
+      '<td class="mono">' + esc(l.method) + ' ' + esc(l.path) + '</td>' +
+      '<td>' + esc(l.provider) + '</td>' +
+      '<td class="mono">' + key + '</td>' +
+      '<td class="num">' + l.ms + 'ms</td>' +
+      '<td class="faint">' + esc(l.msg || '') + '</td></tr>';
+  }).join('');
+  el.innerHTML = '<table><thead><tr><th>Time</th><th>Code</th><th>Request</th><th>Provider</th><th>Key</th><th>Latency</th><th>Note</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+// ---------- events ----------
+
+document.addEventListener('change', (ev) => {
+  const el = ev.target;
+  if (el && el.matches && el.matches('[data-rf="source"]')){
+    const row = el.closest('.rule');
+    if (row) syncSource(row);
+  }
+});
+
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-act]');
+  if (!btn) return;
+  const a = btn.dataset.act, pid = btn.dataset.pid || btn.dataset.id, kid = btn.dataset.kid;
+  const findKey = (id) => {
+    for (const p of S.providers) for (const k of p.keys || []) if (k.id === id) return k;
+    return {};
+  };
+  try {
+    switch (a){
+      case 'add-rule': {
+        const wrap = btn.parentElement.querySelector('[data-rules]') ||
+                     btn.closest('.sub').querySelector('[data-rules]');
+        if (wrap) wrap.insertAdjacentHTML('beforeend', ruleRowHTML());
+        break;
+      }
+      case 'del-rule':{
+        const rows = btn.closest('[data-rules]').querySelectorAll('.rule');
+        if (rows.length > 1) btn.closest('.rule').remove();
+        else toast('A provider needs at least one field', true);
+        break;
+      }
+      case 'copy':
+        try { await navigator.clipboard.writeText(btn.dataset.copy); toast('Copied to clipboard', 'ok'); }
+        catch(e){ toast('Copy failed — select it manually', true); }
+        break;
+      case 'reveal':
+        reveal[kid] = !reveal[kid]; renderMain(); break;
+      case 'toggle-provider': {
+        const p = S.providers.find(x => x.id === pid);
+        await api('/api/providers/' + pid, 'PUT', { enabled: !p.enabled });
+        await load(); renderMain(); break;
+      }
+      case 'edit-provider':
+        providerEdit[pid] = !providerEdit[pid]; renderMain(); break;
+      case 'cancel-provider':
+        delete providerEdit[pid]; renderMain(); break;
+      case 'save-provider': {
+        const card = btn.closest('.sub');
+        const body = readForm(card);
+        if (!body.baseUrl){ toast('Base URL is required', true); return; }
+        await api('/api/providers/' + pid, 'PUT', body);
+        delete providerEdit[pid]; toast('Provider saved — applies immediately', 'ok'); await load(); renderMain(); break;
+      }
+      case 'del-provider':
+        if (!confirm('Delete provider "' + btn.dataset.name + '" and all its keys?')) return;
+        await api('/api/providers/' + pid, 'DELETE'); toast('Provider deleted', 'ok'); await load(); renderMain(); break;
+      case 'test-provider': {
+        btn.textContent = 'testing…'; btn.disabled = true;
+        const r = await api('/api/providers/' + pid + '/test', 'POST');
+        const bad = (r.results || []).filter(x => !x.ok).length;
+        toast(bad ? (bad + ' key(s) failed') : 'All keys OK', bad > 0 ? true : 'ok');
+        await load(); renderMain(); break;
+      }
+      case 'add-key': {
+        const val = (keyDraft[pid] || '').trim();
+        if (!val){ toast('Paste a key first', true); return; }
+        await api('/api/providers/' + pid + '/keys', 'POST', { value: val });
+        keyDraft[pid] = ''; toast('Key added', 'ok'); await load(); renderMain(); break;
+      }
+      case 'del-key':
+        await api('/api/providers/' + pid + '/keys/' + kid, 'DELETE'); await load(); renderMain(); break;
+      case 'reset-key':
+        await api('/api/providers/' + pid + '/keys/' + kid + '/reset', 'POST');
+        toast('Key reset', 'ok'); await load(); renderMain(); break;
+      case 'toggle-key': {
+        const k = findKey(kid);
+        await api('/api/providers/' + pid + '/keys/' + kid, 'PUT', { enabled: !k.enabled });
+        await load(); renderMain(); break;
+      }
+      case 'test-key': {
+        btn.textContent = '…'; btn.disabled = true;
+        const r = await api('/api/providers/' + pid + '/keys/' + kid + '/test', 'POST');
+        toast('Key ' + (r.ok ? 'OK' : 'failed') + ' (' + r.code + ')', r.ok ? 'ok' : true);
+        await load(); renderMain(); break;
+      }
+      case 'edit-key': {
+        const k = findKey(kid);
+        keyEdit[kid] = { label: k.label || '', value: k.value || '' };
+        renderMain();
+        break;
+      }
+      case 'cancel-key':
+        delete keyEdit[kid]; renderMain(); break;
+      case 'save-key': {
+        const tr = btn.closest('tr');
+        const label = tr.querySelector('[data-kf="label"]').value.trim();
+        const value = tr.querySelector('[data-kf="value"]').value.trim();
+        const body = { label };
+        if (value) body.value = value;
+        await api('/api/providers/' + pid + '/keys/' + kid, 'PUT', body);
+        delete keyEdit[kid]; toast('Key saved', 'ok'); await load(); renderMain(); break;
+      }
+    }
+  } catch(e){ toast(e.message, true); }
+});
+
+$('#btn-refresh').onclick = () => load();
+$('#btn-settings').onclick = () => {
+  settingsOpen = !settingsOpen;
+  renderSettings();
+  $('#btn-settings').textContent = settingsOpen ? 'Hide settings' : 'Settings';
+};
+$('#btn-new').onclick = () => { newOpen = !newOpen; renderNew(); };
+
+load();
+setInterval(load, 3000);   // patches live values only; never re-renders forms
+</script>
+</body>
+</html>
