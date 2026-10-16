@@ -89,6 +89,21 @@ scripts/          build and update scripts for each OS
 5. Update `README.md` or the guide in `docs/` if you change behaviour, flags, endpoints, or file layout.
 6. Open a pull request describing **what** changed and **why**.
 
+## Releasing
+
+1. Set `version` in `cmd/keyrotator/main.go` to the new version and commit it.
+2. Tag the commit and push the tag:
+
+   ```sh
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+
+The **Release** workflow then runs the tests, builds Windows, macOS and Linux archives for amd64 and
+arm64 with the version stamped in, and publishes a GitHub release with the archives and
+`checksums.txt`. To try the build without publishing, run the workflow by hand from the Actions tab;
+the archives appear as a downloadable artifact.
+
 ## Commit messages
 
 Short, imperative subject line (e.g. `Add per-key rate limit to CLI test`), with

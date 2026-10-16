@@ -18,7 +18,20 @@ It runs on Windows, macOS and Linux as a single small program, with nothing else
 
 ## Quick start
 
-**1. Build it** (needs [Go](https://go.dev/dl/) 1.24 or newer):
+**1. Get it.** Download the archive for your system from
+[Releases](https://github.com/gdg4dev/key-rotator/releases/latest) and unpack it:
+
+| System | File |
+| --- | --- |
+| Windows | `keyrotator_<version>_windows_amd64.zip` (`arm64` for ARM PCs) |
+| macOS, Apple silicon | `keyrotator_<version>_darwin_arm64.tar.gz` |
+| macOS, Intel | `keyrotator_<version>_darwin_amd64.tar.gz` |
+| Linux | `keyrotator_<version>_linux_amd64.tar.gz` (`arm64` for ARM) |
+
+`checksums.txt` lists the SHA-256 of every file. The macOS build is not signed, so the first time,
+run `xattr -d com.apple.quarantine ./keyrotator` in its folder, or macOS will refuse to open it.
+
+Or build it yourself (needs [Go](https://go.dev/dl/) 1.24 or newer); it lands in `bin/`:
 
 ```sh
 ./scripts/build.sh                                              # macOS and Linux
@@ -28,7 +41,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1    # Windows
 **2. Make `keyrotator` work in any terminal** (optional, but handy):
 
 ```sh
-./bin/keyrotator path on        # Windows: .\bin\keyrotator.exe path on
+./keyrotator path on        # Windows: .\keyrotator.exe path on   (built it yourself? use bin/)
 ```
 
 Then open a new terminal. From now on, plain `keyrotator` works anywhere. You can also flip
