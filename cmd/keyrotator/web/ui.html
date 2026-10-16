@@ -226,18 +226,29 @@ tr:last-child td { border-bottom: 0; }
 .rule {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px; margin-bottom: 8px;
-  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--sunken);
+  border: 1px solid var(--line); border-left: 3px solid transparent;
+  border-radius: var(--radius-sm); background: var(--sunken);
 }
-.rule.off { opacity: .55; }
 .rule input[type=checkbox] { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
 .rule-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .rule-main > select, .rule-main > input { max-width: 100%; }
 .rule .custom { display: grid; grid-template-columns: 96px 1fr 1fr; gap: 8px; }
 .rule .custom[hidden] { display: none; }
-.rule-main.fixed, .rule-main:not(.custom-wrap) { min-width: 0; }
 .rule [data-rf="preset"] { max-width: 360px; }
-.rule [data-rf="value"] { max-width: 100%; }
+.rule-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.rule .group-in { width: 130px; height: 30px; }
+.held-note { font-size: 11px; color: var(--warn); }
+/* Group rails: rows sharing a group share a colour on their left edge. */
+.rule.grouped[data-slot="0"] { border-left-color: #3b6fb6; }
+.rule.grouped[data-slot="1"] { border-left-color: #8a5cc2; }
+.rule.grouped[data-slot="2"] { border-left-color: #b7791f; }
+.rule.grouped[data-slot="3"] { border-left-color: #2b8a7a; }
+.rule.grouped[data-slot="4"] { border-left-color: #b5507a; }
+.rule.held { border-style: dashed; border-left-style: solid; opacity: .72; }
+.rc-group { color: var(--accent); font-weight: 600; }
+.rule-chip.held { opacity: .55; border-style: dashed; }
 @media (max-width: 760px) { .rule .custom { grid-template-columns: 1fr; } }
+
 
 
 .empty { padding: 36px 24px; text-align: center; color: var(--ink-3); }
@@ -351,6 +362,7 @@ tr:last-child td { border-bottom: 0; }
   </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<datalist id="group-names"></datalist>
 
 <script>
 const $ = (s, r=document) => r.querySelector(s);
@@ -615,9 +627,10 @@ function renderSettings(){
 // ---------- provider form (fields + injection rules) ----------
 
 // ---------- request fields ----------
-// Two plain sections. "Where your API key is sent" starts with one preset
-// dropdown; the detailed fields appear only when "Custom" is chosen (progressive
-// disclosure). "Fixed values" are sent unchanged and never touch the key.
+// "Where your API key is sent" has one row per place the key goes. The detail
+// fields appear only for "Custom" (progressive disclosure). "Fixed values" are
+// sent unchanged. Any row can join a group by typing the same group name:
+// grouped rows are sent together, all or nothing.
 
 const KEY_PRESETS = [
   { id: 'bearer',    label: 'Authorization header (Bearer)', in: 'header', name: 'Authorization',  prefix: 'Bearer ' },
@@ -627,22 +640,45 @@ const KEY_PRESETS = [
   { id: 'custom',    label: 'Custom…' },
 ];
 
+// Colours for group rails. Each group takes the next one, wrapping around.
+const GROUP_SLOTS = 5;
+
 // presetFor finds which preset a rule matches, so the dropdown shows the truth.
 function presetFor(r){
   const hit = KEY_PRESETS.find(p => p.in && p.in === r.in && p.name === r.name && (p.prefix || '') === (r.prefix || ''));
   return hit ? hit.id : 'custom';
 }
 
-function enabledAttr(r){ return r.enabled === false ? 'false' : 'true'; }
+// groupOf is the comparable form of a group name: "Beta" and " beta " match.
+function groupOf(r){ return String(r.group || '').trim().toLowerCase(); }
+
+// heldGroups returns the groups that are held back: one of their members is off
+// or has no name. This mirrors activeRules in rotator.go, the source of truth.
+function heldGroups(rules){
+  const held = new Set();
+  for (const r of rules){
+    const g = groupOf(r);
+    if (g && !(r.enabled && String(r.name || '').trim())) held.add(g);
+  }
+  return held;
+}
+
+function groupInput(r){
+  return '<span class="rule-side">' +
+    '<input data-rf="group" class="group-in mono" list="group-names" placeholder="no group" value="' + esc(r.group || '') + '"' +
+    ' aria-label="Group, optional" spellcheck="false">' +
+    '<span class="held-note" hidden>held</span>' +
+  '</span>';
+}
 
 function keyRuleHTML(r){
-  r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'' }, r || {});
+  r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'', group:'' }, r || {});
   const preset = presetFor(r);
   const options = KEY_PRESETS.map(p =>
     '<option value="' + p.id + '"' + (preset === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>').join('');
   const locs = ['header','query'].map(m =>
     '<option' + (r.in === m ? ' selected' : '') + '>' + m + '</option>').join('');
-  return '<div class="rule" data-kind="key" data-enabled="' + enabledAttr(r) + '" data-suffix="' + esc(r.suffix) + '">' +
+  return '<div class="rule" data-kind="key" data-suffix="' + esc(r.suffix) + '">' +
     '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
     '<div class="rule-main">' +
       '<select data-rf="preset" aria-label="Send the key as">' + options + '</select>' +
@@ -652,33 +688,76 @@ function keyRuleHTML(r){
         '<input data-rf="prefix" class="mono" placeholder="prefix, e.g. Bearer " value="' + esc(r.prefix) + '" aria-label="Prefix" spellcheck="false">' +
       '</div>' +
     '</div>' +
+    groupInput(r) +
     '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>' +
   '</div>';
 }
 
 function fixedRuleHTML(r){
-  r = Object.assign({ enabled:true, in:'header', name:'', value:'', prefix:'', suffix:'' }, r || {});
-  return '<div class="rule" data-kind="fixed" data-enabled="' + enabledAttr(r) + '" data-in="' + esc(r.in) +
-      '" data-prefix="' + esc(r.prefix) + '" data-suffix="' + esc(r.suffix) + '">' +
+  r = Object.assign({ enabled:true, in:'header', name:'', value:'', prefix:'', suffix:'', group:'' }, r || {});
+  return '<div class="rule" data-kind="fixed" data-in="' + esc(r.in) + '" data-prefix="' + esc(r.prefix) + '" data-suffix="' + esc(r.suffix) + '">' +
     '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
     '<div class="rule-main">' +
       '<input data-rf="name" class="mono" placeholder="header name, e.g. x-api-version" value="' + esc(r.name) + '" aria-label="Header name" spellcheck="false">' +
       '<input data-rf="value" class="mono" placeholder="value, e.g. 2024-02-01" value="' + esc(r.value) + '" aria-label="Value" spellcheck="false">' +
     '</div>' +
+    groupInput(r) +
     '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>' +
   '</div>';
 }
 
-// applyPreset copies a chosen preset into the hidden detail fields of its row.
+// ruleName is the field name a row would send, whichever kind of row it is.
+function ruleName(row){
+  const el = row.dataset.kind === 'key'
+    ? row.querySelector('.custom [data-rf="name"]')
+    : row.querySelector('[data-rf="name"]');
+  return el ? el.value.trim() : '';
+}
+
+// applyPreset copies a chosen preset into the detail fields of its row.
 function applyPreset(row){
   const sel = row.querySelector('[data-rf="preset"]');
   const custom = row.querySelector('.custom');
   const p = KEY_PRESETS.find(x => x.id === sel.value);
   if (!p || !p.in){ custom.hidden = false; return; }
   custom.hidden = true;
-  row.querySelector('[data-rf="in"]').value = p.in;
+  row.querySelector('.custom [data-rf="in"]').value = p.in;
   row.querySelector('.custom [data-rf="name"]').value = p.name;
-  row.querySelector('[data-rf="prefix"]').value = p.prefix || '';
+  row.querySelector('.custom [data-rf="prefix"]').value = p.prefix || '';
+}
+
+// refreshGroups redraws the group rails and "held" notes inside one form. It
+// runs on every edit, so the picture always matches what will be saved.
+function refreshGroups(scope){
+  if (!scope) return;
+  const rows = [...scope.querySelectorAll('.rule')];
+  const info = rows.map(row => {
+    const label = row.querySelector('[data-rf="group"]').value.trim();
+    return {
+      row, label, key: label.toLowerCase(),
+      ok: row.querySelector('[data-rf="enabled"]').checked && ruleName(row) !== '',
+    };
+  });
+  const held = new Set(info.filter(x => x.key && !x.ok).map(x => x.key));
+  const slot = {}; let next = 0;
+  for (const x of info){
+    const r = x.row;
+    r.classList.toggle('grouped', !!x.key);
+    if (x.key){
+      if (!(x.key in slot)) slot[x.key] = (next++) % GROUP_SLOTS;
+      r.dataset.slot = slot[x.key];
+    } else {
+      delete r.dataset.slot;
+    }
+    const isHeld = !!x.key && held.has(x.key);
+    r.classList.toggle('held', isHeld);
+    const note = r.querySelector('.held-note');
+    note.hidden = !isHeld;
+    note.title = isHeld ? 'Held: every field in group "' + x.label + '" must be on and named' : '';
+  }
+  // Offer the group names already in use, so a typed name matches exactly.
+  const names = [...new Set(info.filter(x => x.label).map(x => x.label))];
+  document.getElementById('group-names').innerHTML = names.map(n => '<option value="' + esc(n) + '">').join('');
 }
 
 function providerForm(p){
@@ -711,16 +790,21 @@ function providerForm(p){
     '</div>' +
     '<div class="sep"></div>' +
     '<div class="section-head2">Where your API key is sent</div>' +
-    '<p class="faint small" style="margin:2px 0 10px">The key is sent in every place listed here, on every request.</p>' +
+    '<p class="faint small" style="margin:2px 0 10px">The key is sent to every place listed here, on every request.</p>' +
     '<div data-keyrules>' + firstKey.map(keyRuleHTML).join('') + '</div>' +
     '<div style="margin-top:8px"><button type="button" class="ghost sm" data-act="add-key-rule">+ Add another place</button></div>' +
     '<div class="sep"></div>' +
     '<div class="section-head2">Fixed values <span class="faint small">optional</span></div>' +
     '<p class="faint small" style="margin:2px 0 10px">Sent unchanged on every request, for example an API version header.</p>' +
     '<div data-fixedrules>' + fixedRules.map(fixedRuleHTML).join('') + '</div>' +
-    '<div style="margin-top:8px"><button type="button" class="ghost sm" data-act="add-fixed-rule">+ Add fixed value</button></div>';
+    '<div style="margin-top:8px"><button type="button" class="ghost sm" data-act="add-fixed-rule">+ Add fixed value</button></div>' +
+    '<div class="sep"></div>' +
+    '<p class="hint" style="margin:0"><b>Groups.</b> Rows with no group are sent on their own. Rows with the same group name are sent together: ' +
+    'if one of them is off or has no name, none of the group is sent.</p>';
 }
 
+// readForm turns the open form into a provider body. A grouped row with no name
+// sets groupError, because saving it would silently hold its whole group.
 function readForm(root){
   const out = {};
   root.querySelectorAll('[data-f]').forEach(el => { out[el.dataset.f] = el.value.trim(); });
@@ -731,34 +815,43 @@ function readForm(root){
     else out[f] = Number(out[f]);
   });
   const rules = [];
-  root.querySelectorAll('[data-keyrules] .rule').forEach(row => {
-    const name = row.querySelector('.custom [data-rf="name"]').value.trim();
-    if (!name) return;
-    rules.push({
-      enabled: row.querySelector('[data-rf="enabled"]').checked,
-      in: row.querySelector('[data-rf="in"]').value,
-      name: name,
-      source: 'key',
-      value: '',
-      prefix: row.querySelector('[data-rf="prefix"]').value,
-      suffix: row.dataset.suffix || '',
-    });
+  const badGroups = [];
+  root.querySelectorAll('[data-keyrules] .rule, [data-fixedrules] .rule').forEach(row => {
+    const group = row.querySelector('[data-rf="group"]').value.trim();
+    const name = ruleName(row);
+    if (!name){
+      if (group) badGroups.push(group);
+      return;
+    }
+    const enabled = row.querySelector('[data-rf="enabled"]').checked;
+    if (row.dataset.kind === 'key'){
+      rules.push({
+        enabled, in: row.querySelector('.custom [data-rf="in"]').value, name,
+        source: 'key', value: '',
+        prefix: row.querySelector('.custom [data-rf="prefix"]').value,
+        suffix: row.dataset.suffix || '', group,
+      });
+    } else {
+      rules.push({
+        enabled, in: row.dataset.in || 'header', name,
+        source: 'static', value: row.querySelector('[data-rf="value"]').value.trim(),
+        prefix: row.dataset.prefix || '', suffix: row.dataset.suffix || '', group,
+      });
+    }
   });
-  root.querySelectorAll('[data-fixedrules] .rule').forEach(row => {
-    const name = row.querySelector('[data-rf="name"]').value.trim();
-    if (!name) return;
-    rules.push({
-      enabled: row.querySelector('[data-rf="enabled"]').checked,
-      in: row.dataset.in || 'header',
-      name: name,
-      source: 'static',
-      value: row.querySelector('[data-rf="value"]').value.trim(),
-      prefix: row.dataset.prefix || '',
-      suffix: row.dataset.suffix || '',
-    });
-  });
+  if (badGroups.length){
+    out.groupError = 'Give the field in group "' + badGroups[0] + '" a name, or clear its group.';
+  }
   out.inject = rules;
   return out;
+}
+
+// formBody reads a provider form for saving, or shows why it cannot be saved.
+function formBody(root){
+  const body = readForm(root);
+  if (body.groupError){ toast(body.groupError, true); return null; }
+  delete body.groupError;
+  return body;
 }
 
 function renderNew(){
@@ -770,7 +863,8 @@ function renderNew(){
       '<button class="ghost" id="np-cancel">Cancel</button>' +
       '<button class="primary" id="np-save">Create provider</button></div></section>';
   $('#np-save').onclick = async () => {
-    const body = readForm(el);
+    const body = formBody(el);
+    if (!body) return;
     if (!body.baseUrl){ toast('Base URL is required', true); return; }
     try { await api('/api/providers', 'POST', body); newOpen = false; renderNew(); toast('Provider created', 'ok'); await load(); renderMain(); }
     catch(e){ toast(e.message, true); }
@@ -789,6 +883,7 @@ function renderMain(){
     return;
   }
   el.innerHTML = S.providers.map(providerCard).join('');
+  el.querySelectorAll('.panel').forEach(refreshGroups);
   document.querySelectorAll('#main [data-act="key-value"]').forEach(inp => {
     inp.oninput = () => { keyDraft[inp.dataset.id] = inp.value; };
   });
@@ -818,6 +913,9 @@ function softRenderMain(){
 }
 function setText(root, sel, txt){ const el = root.querySelector(sel); if (el) el.textContent = txt; }
 function patchCard(card, p){
+  // The field chips show held groups, so they are redrawn with the live state.
+  const fields = card.querySelector('.fields');
+  if (fields) fields.innerHTML = ruleChips(p);
   const badge = card.querySelector('[data-p="badge"]');
   if (badge){ badge.className = 'badge ' + (p.enabled ? 'b-ok' : 'b-off'); badge.textContent = p.enabled ? 'enabled' : 'disabled'; }
   const tg = card.querySelector('[data-act="toggle-provider"]');
@@ -834,13 +932,20 @@ function patchCard(card, p){
 }
 
 function ruleChips(p){
-  const on = (p.inject || []).filter(r => r.enabled);
+  const all = p.inject || [];
+  const on = all.filter(r => r.enabled);
   if (!on.length) return '<span class="faint small">No fields enabled — the key is not injected anywhere.</span>';
+  const held = heldGroups(all);
   return on.map(r => {
     const val = (r.source === 'static')
       ? (r.value ? esc(r.value) : '<span class="faint">empty</span>')
       : '<span class="k">‹key›</span>';
-    return '<span class="rule-chip" title="' + esc(r.in + ' ' + r.name) + '">' +
+    const g = groupOf(r);
+    const isHeld = !!g && held.has(g);
+    const title = r.in + ' ' + r.name + (g ? ' · group ' + r.group : '') +
+      (isHeld ? ' · held: a field in its group is off' : '');
+    return '<span class="rule-chip' + (isHeld ? ' held' : '') + '" title="' + esc(title) + '">' +
+      (g ? '<span class="rc-group">' + esc(r.group) + '</span>' : '') +
       '<span class="rc-in">' + esc(r.in) + '</span>' +
       '<span class="rc-name">' + esc(r.name) + '</span>' +
       '<span class="rc-eq">→</span>' +
@@ -957,10 +1062,14 @@ function updateLogs(){
 
 document.addEventListener('change', (ev) => {
   const el = ev.target;
-  if (el && el.matches && el.matches('[data-rf="preset"]')){
-    const row = el.closest('.rule');
-    if (row) applyPreset(row);
-  }
+  const row = el.closest && el.closest('.rule');
+  if (row && el.matches('[data-rf="preset"]')) applyPreset(row);
+  const panel = el.closest && el.closest('.panel');
+  if (panel) refreshGroups(panel);
+});
+document.addEventListener('input', (ev) => {
+  const panel = ev.target.closest && ev.target.closest('.panel');
+  if (panel) refreshGroups(panel);
 });
 
 document.addEventListener('click', async (ev) => {
@@ -976,11 +1085,15 @@ document.addEventListener('click', async (ev) => {
       case 'open-new':
         newOpen = true; renderNew(); $('#newprovider').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
       case 'add-key-rule': {
-        btn.closest('.panel').querySelector('[data-keyrules]').insertAdjacentHTML('beforeend', keyRuleHTML());
+        const panel = btn.closest('.panel');
+        panel.querySelector('[data-keyrules]').insertAdjacentHTML('beforeend', keyRuleHTML());
+        refreshGroups(panel);
         break;
       }
       case 'add-fixed-rule': {
-        btn.closest('.panel').querySelector('[data-fixedrules]').insertAdjacentHTML('beforeend', fixedRuleHTML());
+        const panel = btn.closest('.panel');
+        panel.querySelector('[data-fixedrules]').insertAdjacentHTML('beforeend', fixedRuleHTML());
+        refreshGroups(panel);
         break;
       }
       case 'del-rule': {
@@ -988,7 +1101,9 @@ document.addEventListener('click', async (ev) => {
         const isKey = row.dataset.kind === 'key';
         const keyCount = row.closest('[data-keyrules]') ? row.closest('[data-keyrules]').querySelectorAll('.rule').length : 0;
         if (isKey && keyCount <= 1){ toast('Keep at least one place for the key', true); break; }
+        const panel = row.closest('.panel');
         row.remove();
+        refreshGroups(panel);
         break;
       }
       case 'copy':
@@ -1008,7 +1123,8 @@ document.addEventListener('click', async (ev) => {
         delete providerEdit[pid]; renderMain(); break;
       case 'save-provider': {
         const card = btn.closest('.panel');
-        const body = readForm(card);
+        const body = formBody(card);
+        if (!body) return;
         if (!body.baseUrl){ toast('Base URL is required', true); return; }
         await api('/api/providers/' + pid, 'PUT', body);
         delete providerEdit[pid]; toast('Provider saved — applies immediately', 'ok'); await load(); renderMain(); break;

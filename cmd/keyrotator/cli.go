@@ -506,7 +506,7 @@ func (c *cliClient) cmdShow(args []string) int {
 
 		fmt.Println("\nfields:")
 		fw := newTable()
-		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX")
+		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX\tGROUP")
 		for _, r := range p.Inject {
 			src := "rotating key"
 			val := ""
@@ -517,8 +517,8 @@ func (c *cliClient) cmdShow(args []string) int {
 			if !r.Enabled {
 				mark = "x "
 			}
-			fmt.Fprintf(fw, "%s%s\t%s\t%s\t%s\t%s\t%s\n",
-				mark, r.In, r.Name, src, val, r.Prefix, r.Suffix)
+			fmt.Fprintf(fw, "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				mark, r.In, r.Name, src, val, r.Prefix, r.Suffix, r.Group)
 		}
 		_ = fw.Flush()
 

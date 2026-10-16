@@ -224,6 +224,19 @@ type providerReq struct {
 	AuthPrefix *string `json:"authPrefix"`
 }
 
+// checkGroups rejects group names the server will not store.
+func (req providerReq) checkGroups() error {
+	if req.Inject == nil {
+		return nil
+	}
+	for _, r := range *req.Inject {
+		if err := validateGroup(r.Group); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (req providerReq) apply(p *Provider) {
 	if strings.TrimSpace(req.Name) != "" {
 		p.Name = strings.TrimSpace(req.Name)
@@ -270,6 +283,10 @@ func (a *App) postProvider(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := req.checkGroups(); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if strings.TrimSpace(req.BaseURL) == "" {
 		writeErr(w, http.StatusBadRequest, "baseUrl is required")
 		return
@@ -287,6 +304,10 @@ func (a *App) postProvider(w http.ResponseWriter, r *http.Request) {
 func (a *App) putProvider(w http.ResponseWriter, r *http.Request, id string) {
 	var req providerReq
 	if err := decode(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := req.checkGroups(); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}

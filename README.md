@@ -323,6 +323,7 @@ edited live in the dashboard (**Edit** → *Request fields*) and saved to the co
 | `value` | the fixed value, used when `source` is `static` |
 | `prefix` | text written before the value (often `Bearer `) |
 | `suffix` | text written after the value |
+| `group` | optional. Fields that share a group name are sent together (see below) |
 
 Every field independently chooses its source, so one provider can rotate its key into several
 places **and** send fixed headers at the same time. The written value is always
@@ -337,6 +338,28 @@ trailing space.
   { "enabled": false, "in": "header", "name": "x-org",         "source": "static", "value": "acme" }
 ]
 ```
+
+### Fields that go together (groups)
+
+Fields with **no group** are independent: each one is sent whenever it is switched on, in any
+combination. Fields that share a **group name** are all-or-nothing: they are sent only when every
+member is switched on and has a name. If one member is off, the whole group is held back and none of
+it is sent. Group names are case-insensitive and ignore surrounding spaces, so `Beta` and ` beta `
+are the same group. A key place and a fixed value can share a group.
+
+```json
+"inject": [
+  { "enabled": true, "in": "header", "name": "x-api-key",   "source": "key",    "group": "tenant" },
+  { "enabled": true, "in": "header", "name": "x-tenant",    "source": "static", "value": "acme", "group": "tenant" },
+  { "enabled": true, "in": "header", "name": "x-trace-id",  "source": "static", "value": "debug" }
+]
+```
+
+Here `x-api-key` and `x-tenant` are always sent together, and `x-trace-id` is sent on its own.
+Turning off `x-tenant` holds `x-api-key` too. In the dashboard, grouped rows share a coloured rail,
+and a held row is dashed and marked *held*. Groups apply to every request; they cannot yet depend on
+the request path or model, and one-way dependencies (A needs B, but B can be used alone) are not
+supported. Use a separate group for each bundle.
 
 Any client-supplied value for those headers/params is replaced. Older configs written with the
 single `authHeader`/`authPrefix` fields are migrated to an equivalent `inject` rule automatically

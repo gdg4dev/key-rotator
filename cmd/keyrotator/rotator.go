@@ -1,22 +1,71 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
-// applyInjection writes every enabled rule onto the outgoing request. Rules
+// Groups let some fields be sent only together. Rules with no group are
+// independent: each one is sent whenever it is switched on. Rules that share a
+// group name are all-or-nothing: if any member is switched off or has no name,
+// none of the group is sent. The name is compared case-insensitively.
+
+// ruleSendable reports whether a rule is switched on and has a name, so it can
+// be written onto a request at all.
+func ruleSendable(r InjectRule) bool {
+	return r.Enabled && strings.TrimSpace(r.Name) != ""
+}
+
+// groupKey normalises a group name, so "Beta" and " beta " are the same group.
+func groupKey(group string) string {
+	return strings.ToLower(strings.TrimSpace(group))
+}
+
+// activeRules returns the rules to send on one request.
+func activeRules(rules []InjectRule) []InjectRule {
+	held := map[string]bool{}
+	for _, r := range rules {
+		if g := groupKey(r.Group); g != "" && !ruleSendable(r) {
+			held[g] = true
+		}
+	}
+	out := make([]InjectRule, 0, len(rules))
+	for _, r := range rules {
+		if !ruleSendable(r) {
+			continue
+		}
+		if g := groupKey(r.Group); g != "" && held[g] {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+const maxGroupLen = 40
+
+var errGroupInvalid = errors.New("group must be 1-40 characters with no control characters")
+
+// validateGroup checks a group name from the API. An empty name means no group.
+func validateGroup(group string) error {
+	g := strings.TrimSpace(group)
+	if len([]rune(g)) > maxGroupLen || strings.ContainsFunc(g, unicode.IsControl) {
+		return errGroupInvalid
+	}
+	return nil
+}
+
+// applyInjection writes every active rule onto the outgoing request. Rules
 // with Source "key" receive the rotating key; "static" rules always send their
 // fixed value.
 func applyInjection(p *Provider, k *Key, req *http.Request) {
-	for _, r := range p.Inject {
-		if !r.Enabled || strings.TrimSpace(r.Name) == "" {
-			continue
-		}
+	for _, r := range activeRules(p.Inject) {
 		raw := k.Value
 		if r.Source == "static" {
 			raw = r.Value

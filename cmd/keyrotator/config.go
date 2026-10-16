@@ -56,6 +56,9 @@ type InjectRule struct {
 	Value   string `json:"value"`  // used when Source == "static"
 	Prefix  string `json:"prefix"` // prepended to the value, e.g. "Bearer "
 	Suffix  string `json:"suffix"` // appended to the value
+	// Group ties fields together: rules that share a group are sent only when
+	// all of them are on. Empty means the rule stands alone. See rotator.go.
+	Group string `json:"group,omitempty"`
 }
 
 // Provider is an upstream API plus its pool of keys.
@@ -94,7 +97,10 @@ func normalizeRules(in []InjectRule) []InjectRule {
 			r.In = "header"
 		}
 		r.Name = strings.TrimSpace(r.Name)
-		if r.Name == "" {
+		r.Group = strings.TrimSpace(r.Group)
+		// A rule with no name is dropped, unless it belongs to a group. Keeping
+		// it holds the whole group back, instead of silently shrinking it.
+		if r.Name == "" && r.Group == "" {
 			continue
 		}
 		r.Source = strings.ToLower(strings.TrimSpace(r.Source))
