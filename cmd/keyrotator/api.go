@@ -64,6 +64,7 @@ type stateResp struct {
 	CooldownSec     int            `json:"cooldownSec"`
 	AdminTokenSet   bool           `json:"adminTokenSet"`
 	Autostart       autostartState `json:"autostart"`
+	Path            pathState      `json:"path"`
 	ProxyToken      string         `json:"proxyToken"`
 	RateLimitRPS    float64        `json:"rateLimitRPS"`
 	KeyRateLimitRPS float64        `json:"keyRateLimitRPS"`
@@ -84,6 +85,8 @@ func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
 	case len(seg) == 1 && seg[0] == "shutdown" && r.Method == http.MethodPost:
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "shutting down"})
 		a.Shutdown()
+	case len(seg) == 1 && seg[0] == "path" && r.Method == http.MethodPost:
+		a.postPath(w, r)
 	case len(seg) == 1 && seg[0] == "autostart" && r.Method == http.MethodPost:
 		a.postAutostart(w, r)
 	case len(seg) == 1 && seg[0] == "providers" && r.Method == http.MethodPost:
@@ -129,6 +132,7 @@ func (a *App) getState(w http.ResponseWriter) {
 		AdminTokenSet:   cfg.AdminToken != "",
 		Listen:          cfg.Listen,
 		Autostart:       currentAutostart(),
+		Path:            currentPath(),
 		ProxyToken:      cfg.ProxyToken,
 		RateLimitRPS:    cfg.RateLimitRPS,
 		KeyRateLimitRPS: cfg.KeyRateLimitRPS,
@@ -203,6 +207,22 @@ func (a *App) postAutostart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, currentAutostart())
+}
+
+// postPath turns "use from any terminal" on or off and returns the new state.
+func (a *App) postPath(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := decode(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := setOnPath(req.Enabled); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, currentPath())
 }
 
 type providerReq struct {

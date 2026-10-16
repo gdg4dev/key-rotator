@@ -12,6 +12,7 @@ The dashboard is a thin client over a small JSON API.
 | GET | `/api/logs` | recent proxied requests |
 | POST | `/api/settings` | `{listen, maxRetries, cooldownSec, adminToken, proxyToken, rateLimitRPS, keyRateLimitRPS}` (`listen` applies on next start) |
 | POST | `/api/autostart` | `{enabled}`: turn start-at-login on or off; returns what is installed |
+| POST | `/api/path` | `{enabled}`: put `keyrotator` on PATH or take it off; returns the new state and what is left to do |
 | GET | `/metrics` | Prometheus metrics (see below) |
 | POST | `/api/providers` | create provider (also accepts `proxyToken`, `rateLimitRPS`, `keyRateLimitRPS`) |
 | PUT / DELETE | `/api/providers/{id}` | update / delete provider |

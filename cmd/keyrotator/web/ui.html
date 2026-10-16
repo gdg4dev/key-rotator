@@ -637,6 +637,8 @@ tr:last-child td { border-bottom: 0; }
               terminal. <code>keyrotator stop</code> and <code>keyrotator status</code> do what they say.</li>
             <li><b>Start at login</b> in Settings starts it whenever you sign in, on Windows, macOS and Linux.</li>
             <li>It also runs as a Windows service, as a systemd service, or in Docker.</li>
+            <li><b>Use from any terminal</b> in Settings (or <code>keyrotator path on</code>) puts <code>keyrotator</code> on your PATH,
+              so it works in any new terminal.</li>
             <li><code>keyrotator tui</code> opens a full-screen dashboard in the terminal, and
               <code>keyrotator help</code> lists every command.</li>
           </ul>
@@ -862,12 +864,22 @@ function renderSettings(){
         ' aria-label="Start KeyRotator at login"><span></span></label>' +
         '<span class="small muted">' + (as.enabled ? 'Enabled' : 'Disabled') + ' · via ' + esc(as.mechanism) + '</span></div>'
     : '<span class="small faint">Not available on this platform yet.</span>';
+  const ps = S.path || {};
+  const pathControl =
+    '<div class="toggle-row"><label class="switch"><input id="set-path" type="checkbox"' + (ps.enabled ? ' checked' : '') +
+      ' aria-label="Use keyrotator from any terminal"><span></span></label>' +
+      '<span class="small muted">' + (ps.enabled ? 'On' : 'Off') + ' · via ' + esc(ps.mechanism || '') + '</span></div>' +
+    (ps.enabled && ps.note ? '<div class="field-note">' + esc(ps.note) + '</div>' : '');
 
   el.innerHTML =
     '<div class="settings-group">' +
       '<div class="setting">' +
         '<div><h3>Start at login</h3><p>Run KeyRotator in the background when you sign in. Stored in the OS, not in the config file.</p></div>' +
         '<div class="control">' + autoControl + '</div>' +
+      '</div>' +
+      '<div class="setting">' +
+        '<div><h3>Use from any terminal</h3><p>Adds keyrotator to your PATH, so <span class="mono">keyrotator help</span> works in any new terminal. Same as <span class="mono">keyrotator path on</span>.</p></div>' +
+        '<div class="control">' + pathControl + '</div>' +
       '</div>' +
       '<div class="setting">' +
         '<div><h3>Listen address</h3><p>Where the proxy and dashboard are served. Applies the next time KeyRotator starts.</p></div>' +
@@ -922,6 +934,21 @@ function renderSettings(){
   const clr = $('#set-proxy-clear');
   if (clr) clr.onclick = () => { clearProxy = true; $('#set-proxy-token').value = ''; toast('Will clear the proxy token on save'); };
 
+  const pathBox = $('#set-path');
+  if (pathBox) pathBox.onchange = async () => {
+    pathBox.disabled = true;
+    try {
+      const st = await api('/api/path', 'POST', { enabled: pathBox.checked });
+      toast(pathBox.checked ? 'keyrotator is on your PATH. ' + (st.note || '') : 'keyrotator removed from your PATH', 'ok');
+    } catch(e){
+      pathBox.checked = !pathBox.checked;
+      toast(e.message, true);
+    } finally {
+      pathBox.disabled = false;
+      await load();
+      renderSettings();
+    }
+  };
   const auto = $('#set-autostart');
   if (auto) auto.onchange = async () => {
     auto.disabled = true;

@@ -47,7 +47,7 @@ var cliCommands = map[string]bool{
 	"on": true, "enable": true, "off": true, "disable": true,
 	"url": true, "keys": true, "add-key": true, "rm-key": true,
 	"key-on": true, "key-off": true, "test": true, "token": true, "settings": true, "alias": true,
-	"tui": true, "start": true, "stop": true, "status": true,
+	"tui": true, "start": true, "stop": true, "status": true, "path": true,
 }
 
 // valueFlags are the flags that consume the following argument unless they are
@@ -151,6 +151,8 @@ func (c *cliClient) dispatch(cmd string, args []string, flags map[string]string)
 		return runTUI(c)
 	case "start":
 		return c.cmdStart()
+	case "path":
+		return cmdPath(args)
 	case "stop":
 		return c.cmdStop()
 	case "status":
@@ -979,6 +981,7 @@ commands:
   settings                        show global settings
   tui                             full-screen terminal dashboard (q to quit)
   start                           run in the background (survives closing the terminal)
+  path on|off                     make keyrotator work in any terminal (or undo it)
   stop                            stop the background server
   status                          show whether it is running
 
@@ -1022,4 +1025,29 @@ func partsLabel(k *Key) string {
 		return "-"
 	}
 	return strings.Join(k.partNames(), ",")
+}
+
+// cmdPath makes `keyrotator` runnable from any terminal, or undoes it. It works
+// on this machine directly and does not need the server.
+func cmdPath(args []string) int {
+	if len(args) > 0 {
+		switch strings.ToLower(args[0]) {
+		case "on", "add", "install":
+			if err := setOnPath(true); err != nil {
+				return fail(err)
+			}
+		case "off", "remove", "uninstall":
+			if err := setOnPath(false); err != nil {
+				return fail(err)
+			}
+		default:
+			fmt.Fprintln(os.Stderr, "usage: keyrotator path [on|off]")
+			return 2
+		}
+	}
+	st := currentPath()
+	if !st.Enabled {
+		return ok("keyrotator is not on your PATH. Turn it on with: keyrotator path on")
+	}
+	return ok("keyrotator is on " + st.Mechanism + ".\n" + st.Note)
 }

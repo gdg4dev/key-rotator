@@ -25,22 +25,31 @@ It runs on Windows, macOS and Linux as a single small program, with nothing else
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1    # Windows
 ```
 
-**2. Start it** in the background, so it keeps running after you close the terminal:
+**2. Make `keyrotator` work in any terminal** (optional, but handy):
 
 ```sh
-./bin/keyrotator start          # Windows: .\bin\keyrotator.exe start
+./bin/keyrotator path on        # Windows: .\bin\keyrotator.exe path on
+```
+
+Then open a new terminal. From now on, plain `keyrotator` works anywhere. You can also flip
+**Use from any terminal** in Settings.
+
+**3. Start it** in the background, so it keeps running after you close the terminal:
+
+```sh
+keyrotator start
 ```
 
 Then open the dashboard at <http://127.0.0.1:8787/>.
 
-**3. Add a provider and your keys.** Click **+ Provider** in the dashboard and paste your keys, or use
+**4. Add a provider and your keys.** Click **+ Provider** in the dashboard and paste your keys, or use
 the terminal:
 
 ```sh
-./bin/keyrotator add OpenAI https://api.openai.com/v1
-./bin/keyrotator add-key OpenAI sk-your-first-key --label billing
-./bin/keyrotator add-key OpenAI sk-your-second-key
-./bin/keyrotator url OpenAI     # prints the URL your code should use
+keyrotator add OpenAI https://api.openai.com/v1
+keyrotator add-key OpenAI sk-your-first-key --label billing
+keyrotator add-key OpenAI sk-your-second-key
+keyrotator url OpenAI     # prints the URL your code should use
 ```
 
 A key you add without a name is called `key 1`, `key 2`, and so on.

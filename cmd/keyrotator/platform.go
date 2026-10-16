@@ -19,6 +19,9 @@ package main
 //	                             or "" when the OS has none
 //	autostartEnabled()           whether start-at-login is registered
 //	autostartApply(on, args)     register or remove start-at-login
+//	pathMechanism                how "use from any terminal" works on this OS
+//	onPath(), setOnPath(on)      whether `keyrotator` runs from any terminal; change it
+//	pathNote()                   what the user still has to do, if anything
 //
 // The Windows service (service_windows.go, with a stub in service_other.go) is
 // kept separate because it is Windows-only and much larger.
@@ -36,6 +39,18 @@ type autostartState struct {
 // login instance reads the same state as the one you configured.
 func autostartArgs(cfgPath string) []string {
 	return []string{"-quiet", "-config", cfgPath}
+}
+
+// pathState is what the admin API reports about running keyrotator from any
+// terminal. Like start-at-login, the OS is the source of truth.
+type pathState struct {
+	Enabled   bool   `json:"enabled"`
+	Mechanism string `json:"mechanism"`
+	Note      string `json:"note"`
+}
+
+func currentPath() pathState {
+	return pathState{Enabled: onPath(), Mechanism: pathMechanism, Note: pathNote()}
 }
 
 func currentAutostart() autostartState {

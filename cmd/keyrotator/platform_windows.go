@@ -6,8 +6,10 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -81,4 +83,77 @@ func detachAttr() *syscall.SysProcAttr {
 		CreationFlags: detachedProcess | createNewProcessGroup,
 		HideWindow:    true,
 	}
+}
+
+// ---- "use from any terminal": the user PATH
+
+const pathMechanism = `your user PATH (HKCU\Environment)`
+
+// exeDir is the folder holding the running binary; it is what goes on PATH.
+func exeDir() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(exe), nil
+}
+
+func onPath() bool {
+	dir, err := exeDir()
+	if err != nil {
+		return false
+	}
+	k, err := registry.OpenKey(registry.CURRENT_USER, "Environment", registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+	cur, _, err := k.GetStringValue("Path")
+	return err == nil && pathListHas(cur, dir, ";", true)
+}
+
+func setOnPath(on bool) error {
+	dir, err := exeDir()
+	if err != nil {
+		return err
+	}
+	k, _, err := registry.CreateKey(registry.CURRENT_USER, "Environment", registry.QUERY_VALUE|registry.SET_VALUE)
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+	cur, _, err := k.GetStringValue("Path")
+	if err != nil && !errors.Is(err, registry.ErrNotExist) {
+		return err
+	}
+	next := pathListRemove(cur, dir, ";", true)
+	if on {
+		next = pathListAdd(cur, dir, ";", true)
+	}
+	if next == cur {
+		return nil
+	}
+	// Keep it an expandable string, so entries such as %USERPROFILE%\bin still work.
+	if err := k.SetExpandStringValue("Path", next); err != nil {
+		return err
+	}
+	broadcastEnvironmentChange()
+	return nil
+}
+
+// broadcastEnvironmentChange tells Windows the environment changed, so new
+// terminals see the new PATH without signing out. Open terminals keep theirs.
+func broadcastEnvironmentChange() {
+	env, err := syscall.UTF16PtrFromString("Environment")
+	if err != nil {
+		return
+	}
+	const hwndBroadcast, wmSettingChange, smtoAbortIfHung = 0xffff, 0x001A, 0x0002
+	var result uintptr
+	_, _, _ = syscall.NewLazyDLL("user32.dll").NewProc("SendMessageTimeoutW").Call(
+		hwndBroadcast, wmSettingChange, 0, uintptr(unsafe.Pointer(env)), smtoAbortIfHung, 5000, uintptr(unsafe.Pointer(&result)))
+}
+
+func pathNote() string {
+	return "Open a new terminal for it to take effect; terminals that are already open keep their old PATH."
 }

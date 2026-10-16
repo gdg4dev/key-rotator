@@ -39,6 +39,7 @@ and the admin token — in the same config file, so there is no extra setup:
 | `start` | run in the background; keeps running after the terminal closes |
 | `stop` | stop the background server (graceful; saves the config) |
 | `status` | show whether it is running, its pid and config file |
+| `path on` / `path off` | make `keyrotator` work in any terminal, or undo it; `path` alone shows the state. Runs locally, no server needed |
 
 `<provider>` may be an id, a name, or an unambiguous id prefix. Global flags may appear anywhere:
 `-config PATH`, `-addr ADDR`, `-admin-token T` (or `KEYROTATOR_ADMIN_TOKEN`), `-json`.

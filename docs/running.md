@@ -18,6 +18,24 @@ Back to the [README](../README.md).
 macOS is exercised by the CI matrix. Start-at-login on macOS has not been run on real hardware yet, so
 please report any problems.
 
+## Use keyrotator from any terminal
+
+```sh
+keyrotator path on      # first time: ./bin/keyrotator path on, or .\bin\keyrotator.exe on Windows
+keyrotator path         # is it on?
+keyrotator path off     # undo
+```
+
+The same switch is in **Settings → Use from any terminal**.
+
+| OS | What it does |
+| --- | --- |
+| Windows | Adds the folder holding `keyrotator.exe` to your **user** PATH (no Administrator rights needed) and tells Windows the environment changed. |
+| macOS, Linux | Creates a link `~/.local/bin/keyrotator`. If `~/.local/bin` is not on your PATH yet (the default on macOS), add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc` or `~/.bashrc`; KeyRotator tells you when that is needed. |
+
+Open a new terminal afterwards: terminals that are already open keep their old PATH. If you move the
+KeyRotator folder, run `path on` again from the new place.
+
 ## Run in the background
 
 A server started in a terminal stops when that terminal closes. To keep it running:
