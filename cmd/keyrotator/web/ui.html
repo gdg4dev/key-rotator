@@ -222,18 +222,23 @@ tr:last-child td { border-bottom: 0; }
 .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sep { height: 1px; background: var(--line); margin: 18px 0; }
 .hint { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
-.rules-scroll { overflow-x: auto; }
-.rules-grid { min-width: 1000px; }
-.rule, .rules-head {
-  display: grid; align-items: center; gap: 6px;
-  grid-template-columns: 26px 200px 84px minmax(110px, 1fr) 124px minmax(120px, 1.1fr) 90px 90px 28px;
+.section-head2 { font-size: 13px; font-weight: 650; margin: 0 0 2px; }
+.rule {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; margin-bottom: 8px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--sunken);
 }
-.rules-head { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
-.rule { margin-bottom: 6px; }
-.rule.off input:not([type=checkbox]), .rule.off select { opacity: .55; }
-.rule input[type=checkbox] { width: 16px; height: 16px; margin: 0 auto; display: block; accent-color: var(--accent); }
-.rule input:disabled { background: transparent; }
-.rule .muted { color: var(--ink-3); }
+.rule.off { opacity: .55; }
+.rule input[type=checkbox] { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
+.rule-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.rule-main > select, .rule-main > input { max-width: 100%; }
+.rule .custom { display: grid; grid-template-columns: 96px 1fr 1fr; gap: 8px; }
+.rule .custom[hidden] { display: none; }
+.rule-main.fixed, .rule-main:not(.custom-wrap) { min-width: 0; }
+.rule [data-rf="preset"] { max-width: 360px; }
+.rule [data-rf="value"] { max-width: 100%; }
+@media (max-width: 760px) { .rule .custom { grid-template-columns: 1fr; } }
+
 
 .empty { padding: 36px 24px; text-align: center; color: var(--ink-3); }
 .empty .big { margin-bottom: 4px; font-size: 15px; font-weight: 600; color: var(--ink); }
@@ -609,56 +614,84 @@ function renderSettings(){
 
 // ---------- provider form (fields + injection rules) ----------
 
-// Common places an API key is sent. Picking one fills in location, name and
-// prefix; "Custom" leaves them as typed. Any rule can still be edited by hand.
-const SEND_PRESETS = [
-  { id: 'bearer',   label: 'Authorization: Bearer', in: 'header', name: 'Authorization', prefix: 'Bearer ' },
-  { id: 'x-api-key', label: 'x-api-key header',     in: 'header', name: 'x-api-key',     prefix: '' },
-  { id: 'goog',     label: 'x-goog-api-key header', in: 'header', name: 'x-goog-api-key', prefix: '' },
-  { id: 'q-api_key', label: 'query ?api_key=',      in: 'query',  name: 'api_key',       prefix: '' },
-  { id: 'q-key',    label: 'query ?key=',           in: 'query',  name: 'key',           prefix: '' },
-  { id: 'custom',   label: 'Custom…' },
+// ---------- request fields ----------
+// Two plain sections. "Where your API key is sent" starts with one preset
+// dropdown; the detailed fields appear only when "Custom" is chosen (progressive
+// disclosure). "Fixed values" are sent unchanged and never touch the key.
+
+const KEY_PRESETS = [
+  { id: 'bearer',    label: 'Authorization header (Bearer)', in: 'header', name: 'Authorization',  prefix: 'Bearer ' },
+  { id: 'x-api-key', label: 'x-api-key header',              in: 'header', name: 'x-api-key',      prefix: '' },
+  { id: 'goog',      label: 'x-goog-api-key header',         in: 'header', name: 'x-goog-api-key', prefix: '' },
+  { id: 'q-api_key', label: 'api_key in the URL',            in: 'query',  name: 'api_key',        prefix: '' },
+  { id: 'custom',    label: 'Custom…' },
 ];
+
 // presetFor finds which preset a rule matches, so the dropdown shows the truth.
 function presetFor(r){
-  const hit = SEND_PRESETS.find(p => p.in && p.in === r.in && p.name === r.name && (p.prefix || '') === (r.prefix || ''));
+  const hit = KEY_PRESETS.find(p => p.in && p.in === r.in && p.name === r.name && (p.prefix || '') === (r.prefix || ''));
   return hit ? hit.id : 'custom';
 }
 
-function ruleRowHTML(r){
-  r = Object.assign({ enabled:true, in:'header', name:'', source:'key', value:'', prefix:'', suffix:'' }, r || {});
-  const src = r.source === 'static' ? 'static' : 'key';
-  const current = presetFor(r);
-  const presetOpts = SEND_PRESETS.map(p =>
-    '<option value="' + p.id + '"' + (current === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>').join('');
-  const inOpts = ['header','query'].map(m =>
-    '<option value="' + m + '"' + (r.in === m ? ' selected' : '') + '>' + m + '</option>').join('');
-  const srcOpts = [['key','rotating key'],['static','fixed value']].map(([v,l]) =>
-    '<option value="' + v + '"' + (src === v ? ' selected' : '') + '>' + l + '</option>').join('');
-  const dis = src === 'static' ? '' : ' disabled';
-  return '<div class="rule' + (r.enabled === false ? ' off' : '') + '">' +
-    '<input type="checkbox" data-rf="enabled" aria-label="Enabled"' + (r.enabled !== false ? ' checked' : '') + '>' +
-    '<select data-rf="preset" aria-label="Send key as">' + presetOpts + '</select>' +
-    '<select data-rf="in" aria-label="Location">' + inOpts + '</select>' +
-    '<input data-rf="name" placeholder="Authorization" value="' + esc(r.name) + '" spellcheck="false" aria-label="Field name">' +
-    '<select data-rf="source" aria-label="Type">' + srcOpts + '</select>' +
-    '<input data-rf="value" placeholder="' + (src === 'static' ? 'fixed value' : '<rotating key>') + '" value="' + esc(r.value) + '"' + dis +
-      ' class="mono' + (src === 'static' ? '' : ' muted') + '" spellcheck="false" aria-label="Fixed value">' +
-    '<input data-rf="prefix" class="mono" placeholder="prefix" value="' + esc(r.prefix) + '" spellcheck="false" aria-label="Prefix">' +
-    '<input data-rf="suffix" class="mono" placeholder="suffix" value="' + esc(r.suffix) + '" spellcheck="false" aria-label="Suffix">' +
-    '<button type="button" class="icon" data-act="del-rule" title="Remove this field" aria-label="Remove field">×</button>' +
+function enabledAttr(r){ return r.enabled === false ? 'false' : 'true'; }
+
+function keyRuleHTML(r){
+  r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'' }, r || {});
+  const preset = presetFor(r);
+  const options = KEY_PRESETS.map(p =>
+    '<option value="' + p.id + '"' + (preset === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>').join('');
+  const locs = ['header','query'].map(m =>
+    '<option' + (r.in === m ? ' selected' : '') + '>' + m + '</option>').join('');
+  return '<div class="rule" data-kind="key" data-enabled="' + enabledAttr(r) + '" data-suffix="' + esc(r.suffix) + '">' +
+    '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
+    '<div class="rule-main">' +
+      '<select data-rf="preset" aria-label="Send the key as">' + options + '</select>' +
+      '<div class="custom"' + (preset === 'custom' ? '' : ' hidden') + '>' +
+        '<select data-rf="in" aria-label="Location">' + locs + '</select>' +
+        '<input data-rf="name" class="mono" placeholder="field name" value="' + esc(r.name) + '" aria-label="Field name" spellcheck="false">' +
+        '<input data-rf="prefix" class="mono" placeholder="prefix, e.g. Bearer " value="' + esc(r.prefix) + '" aria-label="Prefix" spellcheck="false">' +
+      '</div>' +
+    '</div>' +
+    '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>' +
   '</div>';
+}
+
+function fixedRuleHTML(r){
+  r = Object.assign({ enabled:true, in:'header', name:'', value:'', prefix:'', suffix:'' }, r || {});
+  return '<div class="rule" data-kind="fixed" data-enabled="' + enabledAttr(r) + '" data-in="' + esc(r.in) +
+      '" data-prefix="' + esc(r.prefix) + '" data-suffix="' + esc(r.suffix) + '">' +
+    '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
+    '<div class="rule-main">' +
+      '<input data-rf="name" class="mono" placeholder="header name, e.g. x-api-version" value="' + esc(r.name) + '" aria-label="Header name" spellcheck="false">' +
+      '<input data-rf="value" class="mono" placeholder="value, e.g. 2024-02-01" value="' + esc(r.value) + '" aria-label="Value" spellcheck="false">' +
+    '</div>' +
+    '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>' +
+  '</div>';
+}
+
+// applyPreset copies a chosen preset into the hidden detail fields of its row.
+function applyPreset(row){
+  const sel = row.querySelector('[data-rf="preset"]');
+  const custom = row.querySelector('.custom');
+  const p = KEY_PRESETS.find(x => x.id === sel.value);
+  if (!p || !p.in){ custom.hidden = false; return; }
+  custom.hidden = true;
+  row.querySelector('[data-rf="in"]').value = p.in;
+  row.querySelector('.custom [data-rf="name"]').value = p.name;
+  row.querySelector('[data-rf="prefix"]').value = p.prefix || '';
 }
 
 function providerForm(p){
   const def = { name:'', baseUrl:'', healthPath:'/models', strategy:'round_robin',
                 inject:[{ enabled:true, in:'header', name:'Authorization', source:'key', prefix:'Bearer ', suffix:'' }] };
   p = p || def;
-  const rules = (p.inject && p.inject.length) ? p.inject
-    : [{ enabled:true, in:'header', name:'', source:'key', prefix:'', suffix:'' }];
+  const rules = p.inject || [];
+  const keyRules = rules.filter(r => r.source !== 'static');
+  const fixedRules = rules.filter(r => r.source === 'static');
   const strat = ['round_robin','random','least_used'].map(s =>
     '<option value="' + s + '"' + (p.strategy === s ? ' selected' : '') + '>' + s + '</option>').join('');
   const rateVal = v => (v === null || v === undefined) ? '' : v;
+  const firstKey = keyRules.length ? keyRules : [{ in:'header', name:'Authorization', prefix:'Bearer ' }];
   return '<div class="grid3">' +
       '<div><label class="lbl">Name</label><input data-f="name" value="' + esc(p.name) + '" placeholder="OpenAI main"></div>' +
       '<div><label class="lbl">Base URL</label><input data-f="baseUrl" value="' + esc(p.baseUrl) + '" placeholder="https://api.openai.com/v1" spellcheck="false"></div>' +
@@ -674,21 +707,18 @@ function providerForm(p){
     '<div class="grid2" style="margin-top:14px">' +
       '<div><label class="lbl">Proxy token</label>' +
         '<input data-f="proxyToken" class="mono" value="' + esc(p.proxyToken || '') + '" placeholder="blank = use the global token" spellcheck="false"></div>' +
-      '<div><label class="lbl">Rotation</label><input value="every request takes the next eligible key" disabled></div>' +
+      '<div></div>' +
     '</div>' +
     '<div class="sep"></div>' +
-    '<label class="lbl">Request fields — applied live, on every request</label>' +
-    '<div class="rules-scroll"><div class="rules-grid">' +
-      '<div class="rules-head"><span></span><span>send as</span><span>in</span><span>name</span><span>type</span><span>fixed value</span><span>prefix</span><span>suffix</span><span></span></div>' +
-      '<div data-rules>' + rules.map(ruleRowHTML).join('') + '</div>' +
-    '</div></div>' +
-    '<div style="margin-top:10px"><button type="button" class="ghost sm" data-act="add-rule">+ Add field</button></div>' +
-    '<div class="hint"><b>Send as</b> picks where the value goes. <b>Type</b> picks what is sent: ' +
-    '<b>rotating key</b> sends the key chosen for this request, <b>fixed value</b> sends the text you type. ' +
-    'One key can go to several places: add a rotating-key field for each one. Rows with no name are ignored. ' +
-    'The value written is <code>prefix + value + suffix</code>; spaces in affixes are kept, so <code>Bearer&nbsp;</code> keeps its trailing space.<br>' +
-    'Examples: <code>header · Authorization · rotating key · prefix "Bearer "</code> &nbsp;·&nbsp; ' +
-    '<code>query · api_key · rotating key</code> &nbsp;·&nbsp; <code>header · x-api-version · fixed value</code>.</div>';
+    '<div class="section-head2">Where your API key is sent</div>' +
+    '<p class="faint small" style="margin:2px 0 10px">The key is sent in every place listed here, on every request.</p>' +
+    '<div data-keyrules>' + firstKey.map(keyRuleHTML).join('') + '</div>' +
+    '<div style="margin-top:8px"><button type="button" class="ghost sm" data-act="add-key-rule">+ Add another place</button></div>' +
+    '<div class="sep"></div>' +
+    '<div class="section-head2">Fixed values <span class="faint small">optional</span></div>' +
+    '<p class="faint small" style="margin:2px 0 10px">Sent unchanged on every request, for example an API version header.</p>' +
+    '<div data-fixedrules>' + fixedRules.map(fixedRuleHTML).join('') + '</div>' +
+    '<div style="margin-top:8px"><button type="button" class="ghost sm" data-act="add-fixed-rule">+ Add fixed value</button></div>';
 }
 
 function readForm(root){
@@ -701,33 +731,34 @@ function readForm(root){
     else out[f] = Number(out[f]);
   });
   const rules = [];
-  root.querySelectorAll('[data-rules] .rule').forEach(row => {
-    // Prefix/suffix keep their exact whitespace ("Bearer " must stay "Bearer ").
-    const raw = f => { const el = row.querySelector('[data-rf="' + f + '"]'); return el ? el.value : ''; };
-    const name = raw('name').trim();
+  root.querySelectorAll('[data-keyrules] .rule').forEach(row => {
+    const name = row.querySelector('.custom [data-rf="name"]').value.trim();
     if (!name) return;
     rules.push({
       enabled: row.querySelector('[data-rf="enabled"]').checked,
       in: row.querySelector('[data-rf="in"]').value,
       name: name,
-      source: row.querySelector('[data-rf="source"]').value,
-      value: raw('value').trim(),
-      prefix: raw('prefix'),
-      suffix: raw('suffix'),
+      source: 'key',
+      value: '',
+      prefix: row.querySelector('[data-rf="prefix"]').value,
+      suffix: row.dataset.suffix || '',
+    });
+  });
+  root.querySelectorAll('[data-fixedrules] .rule').forEach(row => {
+    const name = row.querySelector('[data-rf="name"]').value.trim();
+    if (!name) return;
+    rules.push({
+      enabled: row.querySelector('[data-rf="enabled"]').checked,
+      in: row.dataset.in || 'header',
+      name: name,
+      source: 'static',
+      value: row.querySelector('[data-rf="value"]').value.trim(),
+      prefix: row.dataset.prefix || '',
+      suffix: row.dataset.suffix || '',
     });
   });
   out.inject = rules;
   return out;
-}
-
-function syncSource(row){
-  const sel = row.querySelector('[data-rf="source"]');
-  const v = row.querySelector('[data-rf="value"]');
-  if (!sel || !v) return;
-  const isStatic = sel.value === 'static';
-  v.disabled = !isStatic;
-  v.classList.toggle('muted', !isStatic);
-  v.placeholder = isStatic ? 'fixed value' : '<rotating key>';
 }
 
 function renderNew(){
@@ -926,18 +957,9 @@ function updateLogs(){
 
 document.addEventListener('change', (ev) => {
   const el = ev.target;
-  if (el && el.matches && el.matches('[data-rf="source"]')){
-    const row = el.closest('.rule');
-    if (row) syncSource(row);
-  }
   if (el && el.matches && el.matches('[data-rf="preset"]')){
     const row = el.closest('.rule');
-    const p = SEND_PRESETS.find(x => x.id === el.value);
-    if (row && p && p.in){
-      row.querySelector('[data-rf="in"]').value = p.in;
-      row.querySelector('[data-rf="name"]').value = p.name;
-      row.querySelector('[data-rf="prefix"]').value = p.prefix || '';
-    }
+    if (row) applyPreset(row);
   }
 });
 
@@ -953,15 +975,20 @@ document.addEventListener('click', async (ev) => {
     switch (a){
       case 'open-new':
         newOpen = true; renderNew(); $('#newprovider').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
-      case 'add-rule': {
-        const wrap = btn.closest('.panel').querySelector('[data-rules]');
-        if (wrap) wrap.insertAdjacentHTML('beforeend', ruleRowHTML());
+      case 'add-key-rule': {
+        btn.closest('.panel').querySelector('[data-keyrules]').insertAdjacentHTML('beforeend', keyRuleHTML());
         break;
       }
-      case 'del-rule':{
-        const rows = btn.closest('[data-rules]').querySelectorAll('.rule');
-        if (rows.length > 1) btn.closest('.rule').remove();
-        else toast('A provider needs at least one field', true);
+      case 'add-fixed-rule': {
+        btn.closest('.panel').querySelector('[data-fixedrules]').insertAdjacentHTML('beforeend', fixedRuleHTML());
+        break;
+      }
+      case 'del-rule': {
+        const row = btn.closest('.rule');
+        const isKey = row.dataset.kind === 'key';
+        const keyCount = row.closest('[data-keyrules]') ? row.closest('[data-keyrules]').querySelectorAll('.rule').length : 0;
+        if (isKey && keyCount <= 1){ toast('Keep at least one place for the key', true); break; }
+        row.remove();
         break;
       }
       case 'copy':
