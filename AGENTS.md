@@ -18,10 +18,14 @@ a Windows service.
 | `cmd/keyrotator/main.go` | Entrypoint, flags, mode dispatch |
 | `cmd/keyrotator/app.go` | Wiring, HTTP server, request log, health sweeper, shutdown |
 | `cmd/keyrotator/proxy.go` | The `/p/...` proxy handler, proxy-token auth, retries |
-| `cmd/keyrotator/rotator.go` | Key selection, injection, field groups, failure classification |
+| `cmd/keyrotator/rotator.go` | Key selection within a key group, injection, bundles, failure classification |
+| `cmd/keyrotator/pool.go` | Key groups (`pool` in JSON): which groups a request needs, one key from each, pinning |
+| `cmd/keyrotator/parts.go` | Key parts (matched pairs such as key + session id) and name validation |
 | `cmd/keyrotator/limits.go` | Token-bucket rate limiter (per provider and per key) |
 | `cmd/keyrotator/config.go` | Config model, atomic persistence, migration |
 | `cmd/keyrotator/alias.go` | Key aliases and their uniqueness |
+| `cmd/keyrotator/activity.go` | Saves the Activity log to `activity.json` and restores it at startup |
+| `cmd/keyrotator/pathlist.go` | Adding and removing a folder in a PATH list, for `keyrotator path` |
 | `cmd/keyrotator/api.go` | Admin REST API; embeds `web/ui.html` |
 | `cmd/keyrotator/cli.go` | `keyrotator <command>` management CLI |
 | `cmd/keyrotator/tui.go` | Terminal UI, a client of the admin API |

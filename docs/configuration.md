@@ -5,9 +5,12 @@ Back to the [README](../README.md).
 
 ## How selection works
 
-For each request the rotator builds a candidate pool of enabled keys that are not
-`invalid` and not in cooldown, then picks one by the provider's strategy. On a
-retryable response it marks the key and picks again, up to `maxRetries` times:
+For each request the rotator picks one key from every [key group](#key-groups) that an
+active place uses (usually just `default`). Within a group, the candidates are the enabled
+keys that are not `invalid`, not in cooldown, and have every [part](#matched-pairs-keys-with-several-parts)
+the group's places send; the provider's strategy picks one of them. If every candidate is
+cooling down, a cooling key is used rather than failing. On a retryable response it marks the
+keys it used and picks again, up to `maxRetries` times:
 
 - `401` / `403` → key marked **invalid** (needs a manual reset or a passing health check)
 - `429` / `5xx` / network error → key enters **cooldown** (`Retry-After` respected)

@@ -7,7 +7,7 @@ KeyRotator, and KeyRotator adds the next healthy key from your pool. If a key ge
 rejected, it quietly retries with another one, and a small dashboard shows you what happened.
 
 <p align="center">
-  <img src="docs/images/providers.png" alt="The KeyRotator dashboard: a provider's keys, their health, and where each key is sent" width="900">
+  <img src="docs/images/providers.png" alt="The KeyRotator dashboard: a provider's keys in two key groups, their health, and where each key is sent" width="900">
 </p>
 
 - **Spread the load.** Several keys share the traffic, so one key's rate limit doesn't stop you.
@@ -140,7 +140,7 @@ with **Prev / Next** buttons that step through which key each request will use. 
 while you preview.
 
 <p align="center">
-  <img src="docs/images/request-preview.png" alt="Provider editor with a request preview stepping through round robin" width="900">
+  <img src="docs/images/request-preview.png" alt="Provider editor: each place picks a key group and the value it sends, with a preview stepping through round robin" width="900">
 </p>
 
 ## What else it does

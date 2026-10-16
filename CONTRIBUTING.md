@@ -57,10 +57,14 @@ cmd/keyrotator/
   main.go         entrypoint and flags; `keyrotator <command>` goes to cli.go
   app.go          wiring, HTTP server, request log, health checks, shutdown
   proxy.go        the /p/... proxy: auth, rate limits, retries and failover
-  rotator.go      choosing a key, writing it into the request, field groups
+  rotator.go      choosing a key within a key group, writing it into the request, bundles
+  pool.go         key groups: one key from each group a request needs, pinning
+  parts.go        key parts (matched pairs such as key + session id)
   limits.go       token-bucket rate limiter
   config.go       config model, loading, migration, atomic saves
   alias.go        key aliases ("key 1", "billing") and their uniqueness
+  activity.go     saves and restores the Activity log (activity.json)
+  pathlist.go     PATH list editing for `keyrotator path`
   api.go          the admin JSON API; serves the embedded dashboard
   web/ui.html     the dashboard, a single file embedded into the binary
   cli.go          the management CLI
