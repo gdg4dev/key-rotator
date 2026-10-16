@@ -3,28 +3,47 @@
 package main
 
 import (
-	"fmt"
+	"errors"
 	"os"
-	"os/exec"
 	"strings"
+
+	"golang.org/x/sys/windows/registry"
 )
 
 // Per-user Run key: no Administrator rights needed, and it is the same place
 // Windows' own Startup-apps settings page reads from.
+//
+// The registry is read through the Windows API, not by running reg.exe. The
+// dashboard polls this state every few seconds, and a child console process per
+// poll would open and close a terminal window each time.
 const (
 	autostartMechanism = "per-user Run key (HKCU)"
-	runKey             = `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+	runKeyPath         = `Software\Microsoft\Windows\CurrentVersion\Run`
 	runValue           = "KeyRotator"
 )
 
 func autostartEnabled() bool {
-	return exec.Command("reg", "query", runKey, "/v", runValue).Run() == nil
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+	_, _, err = k.GetStringValue(runValue)
+	return err == nil
 }
 
 func autostartApply(enable bool, args []string) error {
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE|registry.QUERY_VALUE)
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+
 	if !enable {
-		// A missing value is already the desired state, so the error is ignored.
-		_ = exec.Command("reg", "delete", runKey, "/v", runValue, "/f").Run()
+		// A missing value is already the desired state.
+		if err := k.DeleteValue(runValue); err != nil && !errors.Is(err, registry.ErrNotExist) {
+			return err
+		}
 		return nil
 	}
 	exe, err := os.Executable()
@@ -35,11 +54,7 @@ func autostartApply(enable bool, args []string) error {
 	for _, a := range args {
 		cmdline += " " + windowsQuote(a)
 	}
-	out, err := exec.Command("reg", "add", runKey, "/v", runValue, "/t", "REG_SZ", "/d", cmdline, "/f").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("reg add: %v: %s", err, strings.TrimSpace(string(out)))
-	}
-	return nil
+	return k.SetStringValue(runValue, cmdline)
 }
 
 // windowsQuote wraps an argument in quotes when it contains spaces, so the
