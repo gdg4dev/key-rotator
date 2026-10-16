@@ -30,8 +30,9 @@ edited live in the dashboard (**Edit** → *Where your API key is sent* and *Fix
 | `value` | the fixed value, used when `source` is `static` |
 | `prefix` | text written before the value (often `Bearer `) |
 | `suffix` | text written after the value |
-| `group` | optional. Fields that share a group name are sent together (see below) |
+| `pool` | optional, key places only. The [key group](#key-groups) this place takes its key from; empty means `default` |
 | `part` | optional, key places only. Which part of the key to send; empty means the key's main value (see [Matched pairs](#matched-pairs-keys-with-several-parts)) |
+| `group` | optional, fixed values. Values in the same **bundle** are switched on and off together (see [Bundles](#bundles-of-fixed-values)) |
 
 Every field independently chooses its source, so one provider can rotate its key into several
 places **and** send fixed headers at the same time. The written value is always
@@ -47,13 +48,13 @@ trailing space.
 ]
 ```
 
-### Groups of fixed values
+### Bundles of fixed values
 
-Fixed values with **no group** are independent: each one is sent whenever it is switched on. Fixed
-values that share a **group name** are switched as one: they are sent only when every member is
-switched on and has a name, so turning one off holds back the whole group. That suits a set of headers
-you turn on and off together, such as beta-feature headers while you try something out. Group names are
-case-insensitive and ignore surrounding spaces.
+Fixed values with **no bundle** are independent: each one is sent whenever it is switched on. Fixed
+values that share a **bundle** (the `group` field in JSON) are switched as one: they are sent only when
+every member is switched on and has a name, so turning one off holds back the whole bundle. That suits a
+set of headers you turn on and off together, such as beta-feature headers while you try something out.
+Bundle names are case-insensitive and ignore surrounding spaces.
 
 ```json
 "inject": [
@@ -64,8 +65,8 @@ case-insensitive and ignore surrounding spaces.
 ```
 
 Here `x-beta-opt-in` is off, so `anthropic-beta` is held back too, while `anthropic-version` is sent
-on its own. In the dashboard, grouped rows share a coloured rail and a held row says why it is not
-sent. Groups do not decide which values travel together on a request; for values that must match, use
+on its own. In the dashboard, bundled rows share a coloured rail and a held row says why it is not
+sent. Bundles do not choose keys; for that, see [key groups](#key-groups) and
 [matched pairs](#matched-pairs-keys-with-several-parts).
 
 Any client-supplied value for those headers/params is replaced. Older configs written with the
@@ -83,6 +84,37 @@ logs and CLI readable, and you can pin a request to a key by its alias.
 - Rename with the dashboard, `keyrotator alias OpenAI "key 2" billing`, the TUI's `n`, or
   `PUT /api/providers/{id}/keys/{kid}` with `{"label": "..."}`.
 - To send a request with a specific key, set the `X-Rotator-Key` header to its alias or id.
+
+## Key groups
+
+Some APIs need two different keys on every request, for example your own key in a header and a
+partner's key in the URL. Put each kind of key in its own **key group** (`pool` in JSON), and let each
+place pick the group it takes from. Every key starts in `default`.
+
+```sh
+keyrotator add-key Example key-aaa --label mine-1
+keyrotator add-key Example key-bbb --label mine-2
+keyrotator add-key Example pk-111  --label p1 --group partner
+keyrotator add-key Example pk-222  --label p2 --group partner
+keyrotator add-key Example pk-333  --label p3 --group partner
+```
+
+```json
+"inject": [
+  { "enabled": true, "in": "header", "name": "x-api-key",   "source": "key" },
+  { "enabled": true, "in": "query",  "name": "partner_key", "source": "key", "pool": "partner" }
+]
+```
+
+- Each request takes one key from every group that an active place uses. Places that use the same
+  group get the same key.
+- Each group takes turns on its own. With round robin the requests above send `mine-1+p1`,
+  `mine-2+p2`, `mine-1+p3`, `mine-2+p1`, and so on. The dashboard preview shows both groups side by side.
+- A group that no place uses is ignored, so it can hold spare keys.
+- When a request fails, every key it used is marked. `X-Rotator-Key` pins a key within its own group;
+  the other groups keep rotating.
+- In the dashboard, the **Key group** column picks a place's group, the add-key bar has a **Group**
+  box, and the card shows one key table per group. Group names are case-insensitive.
 
 ## Matched pairs: keys with several parts
 
@@ -108,9 +140,12 @@ or `"part"` on an `inject` rule). Any mix of headers and URL parameters works:
 
 Rotation picks one whole key, so every request gets a matching set: acct-1's key with acct-1's
 session id, never acct-2's. That holds for every rotation mode. A key that lacks a part a place sends
-is skipped (the dashboard marks it *no session_id*), and when a request fails, only the key it used is
-marked. Once a place sends a part, the dashboard's add-key bar asks for that part, and the key table
-lists each key's parts, never their values.
+is skipped (the dashboard marks it *no session_id*). Once a place sends a part, the dashboard's add-key
+bar asks for that part, and the key table lists each key's parts, never their values.
+
+Key groups and parts work together: parts pair up within one group. A place that sends `session_id`
+from the `partner` group sends the session id of the partner key chosen for that request, and each
+group only requires the parts its own places send.
 
 Round robin uses the keys in list order, starting with the first, and starts again after the last.
 The dashboard's preview steps through exactly that order.

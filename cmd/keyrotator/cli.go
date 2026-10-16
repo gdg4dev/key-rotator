@@ -511,7 +511,7 @@ func (c *cliClient) cmdShow(args []string) int {
 
 		fmt.Println("\nfields:")
 		fw := newTable()
-		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX\tGROUP")
+		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX\tBUNDLE")
 		for _, r := range p.Inject {
 			src, val := "key", ""
 			if r.Part != "" {

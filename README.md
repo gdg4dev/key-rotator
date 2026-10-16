@@ -152,7 +152,9 @@ while you preview.
 - **Matched pairs.** For APIs that need two values together, such as a key and a session id, each key
   can hold both, and every request sends a matching pair. See [configuration](docs/configuration.md#matched-pairs-keys-with-several-parts).
 - **Key aliases and pinning.** Name keys, and send `X-Rotator-Key: billing` to use one key on purpose.
-- **Groups of fixed values** that switch on and off together. See [configuration](docs/configuration.md#groups-of-fixed-values).
+- **Key groups.** For APIs that need two different keys on one request, such as yours and a partner's,
+  each place picks the group it rotates through. See [configuration](docs/configuration.md#key-groups).
+- **Bundles of fixed values** that switch on and off together. See [configuration](docs/configuration.md#bundles-of-fixed-values).
 - **Runs on its own:** start at login on Windows, macOS and Linux, as a Windows service, or in Docker.
 - **Prometheus metrics** at `/metrics`.
 
@@ -162,7 +164,7 @@ while you preview.
 | --- | --- |
 | [Running it](docs/running.md) | Background mode, start at login, Windows service, systemd, Docker, command-line flags |
 | [From the terminal](docs/terminal.md) | Every CLI command, and the terminal UI's keys |
-| [Configuration](docs/configuration.md) | How keys are chosen, where they are sent, groups, aliases, proxy token, rate limits, security |
+| [Configuration](docs/configuration.md) | How keys are chosen, where they are sent, key groups, matched pairs, aliases, proxy token, rate limits, security |
 | [HTTP API and metrics](docs/api.md) | The JSON API behind the dashboard, response headers, Prometheus metrics |
 
 ## Security in a minute
