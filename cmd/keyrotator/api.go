@@ -224,13 +224,16 @@ type providerReq struct {
 	AuthPrefix *string `json:"authPrefix"`
 }
 
-// checkGroups rejects group names the server will not store.
-func (req providerReq) checkGroups() error {
+// checkNames rejects group and pool names the server will not store.
+func (req providerReq) checkNames() error {
 	if req.Inject == nil {
 		return nil
 	}
 	for _, r := range *req.Inject {
-		if err := validateGroup(r.Group); err != nil {
+		if err := validateName("group", r.Group); err != nil {
+			return err
+		}
+		if err := validateName("pool", r.Pool); err != nil {
 			return err
 		}
 	}
@@ -283,7 +286,7 @@ func (a *App) postProvider(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := req.checkGroups(); err != nil {
+	if err := req.checkNames(); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -307,7 +310,7 @@ func (a *App) putProvider(w http.ResponseWriter, r *http.Request, id string) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := req.checkGroups(); err != nil {
+	if err := req.checkNames(); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -323,9 +326,10 @@ func (a *App) putProvider(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 type keyReq struct {
-	Label   string `json:"label"`
-	Value   string `json:"value"`
-	Enabled *bool  `json:"enabled"`
+	Label   string  `json:"label"`
+	Value   string  `json:"value"`
+	Enabled *bool   `json:"enabled"`
+	Pool    *string `json:"pool"`
 }
 
 func (a *App) postKey(w http.ResponseWriter, r *http.Request, pid string) {
@@ -356,6 +360,13 @@ func (a *App) postKey(w http.ResponseWriter, r *http.Request, pid string) {
 	}
 	if req.Enabled != nil {
 		k.Enabled = *req.Enabled
+	}
+	if req.Pool != nil {
+		if err := validateName("pool", *req.Pool); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		k.Pool = storedPool(*req.Pool)
 	}
 	if err := p.addKey(k, alias); err != nil {
 		writeErr(w, http.StatusConflict, err.Error())
@@ -391,7 +402,16 @@ func (a *App) putKey(w http.ResponseWriter, r *http.Request, pid, kid string) {
 			return
 		}
 	}
+	if req.Pool != nil {
+		if err := validateName("pool", *req.Pool); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	if !a.store.MutateKey(pid, kid, func(_ *Provider, k *Key) error {
+		if req.Pool != nil {
+			k.Pool = storedPool(*req.Pool)
+		}
 		if strings.TrimSpace(req.Value) != "" {
 			k.Value = strings.TrimSpace(req.Value)
 		}

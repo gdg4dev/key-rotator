@@ -107,14 +107,14 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	var resp *http.Response
-	var used *Key
+	var used []*Key
 	var lastErr string
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		key, throttled := p.Pick(pin, func(k *Key) bool {
+		keys, throttled := p.PickKeys(pin, func(k *Key) bool {
 			return a.limits.allow("k:"+k.ID, keyRPS)
 		})
-		if key == nil {
+		if keys == nil {
 			if throttled {
 				retryAfter(w, p.shortestKeyWait(keyRPS, a.limits))
 				a.metrics.rateLimited(pid, "key")
@@ -138,7 +138,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		copyHeaders(req.Header, r.Header)
-		applyInjection(p, key, req)
+		applyInjection(p, keyFinder(keys), req)
 		req.Header.Del("X-Rotator-Key")
 		req.Header.Del("X-Rotator-Token")
 		req.Header.Del("Content-Length")
@@ -148,7 +148,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 
 		resp, err = a.client.Do(req)
 		if err != nil {
-			p.markFail(key, 0, err.Error(), cooldown)
+			p.markFailAll(keys, 0, err.Error(), cooldown)
 			lastErr = err.Error()
 			a.metrics.retry(pid)
 			resp = nil
@@ -161,19 +161,21 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 			if attempt < maxRetries-1 {
 				snippet := peek(resp.Body)
 				resp.Body.Close()
-				p.markFail(key, code, snippet, wait)
+				p.markFailAll(keys, code, snippet, wait)
 				lastErr = fmt.Sprintf("%d %s", code, snippet)
 				a.metrics.retry(pid)
 				resp = nil
 				continue
 			}
-			p.markFail(key, code, http.StatusText(code), wait)
-			used = key
+			p.markFailAll(keys, code, http.StatusText(code), wait)
+			used = keys
 			break
 		}
 
-		p.markOK(key)
-		used = key
+		for _, k := range keys {
+			p.markOK(k)
+		}
+		used = keys
 		break
 	}
 
@@ -201,9 +203,10 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	setCORS(w)
 	w.Header().Set("X-Rotator-Provider", p.ID)
-	if used != nil {
-		w.Header().Set("X-Rotator-Key", used.Label)
-		w.Header().Set("X-Rotator-Key-Id", used.ID)
+	label, ids := keyLabels(used)
+	if len(used) > 0 {
+		w.Header().Set("X-Rotator-Key", label)
+		w.Header().Set("X-Rotator-Key-Id", ids)
 	}
 	w.WriteHeader(resp.StatusCode)
 
@@ -213,10 +216,6 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.metrics.request(pid, resp.StatusCode, time.Since(started))
-	label := ""
-	if used != nil {
-		label = used.Label
-	}
 	a.logs.Add(LogEntry{
 		Time: time.Now().Unix(), Provider: pid, Key: label, Method: r.Method,
 		Path: "/" + sub, Code: resp.StatusCode, OK: resp.StatusCode < 400,

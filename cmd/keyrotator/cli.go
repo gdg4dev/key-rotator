@@ -506,19 +506,18 @@ func (c *cliClient) cmdShow(args []string) int {
 
 		fmt.Println("\nfields:")
 		fw := newTable()
-		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX\tGROUP")
+		fmt.Fprintln(fw, "  IN\tNAME\tSOURCE\tVALUE\tPREFIX\tSUFFIX\tPOOL\tGROUP")
 		for _, r := range p.Inject {
-			src := "rotating key"
-			val := ""
+			src, val, pool := "rotating key", "", poolKey(r.Pool)
 			if r.Source == "static" {
-				src, val = "fixed", r.Value
+				src, val, pool = "fixed", r.Value, ""
 			}
 			mark := "  "
 			if !r.Enabled {
 				mark = "x "
 			}
-			fmt.Fprintf(fw, "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				mark, r.In, r.Name, src, val, r.Prefix, r.Suffix, r.Group)
+			fmt.Fprintf(fw, "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				mark, r.In, r.Name, src, val, r.Prefix, r.Suffix, pool, r.Group)
 		}
 		_ = fw.Flush()
 
@@ -528,14 +527,14 @@ func (c *cliClient) cmdShow(args []string) int {
 			return 0
 		}
 		kw := newTable()
-		fmt.Fprintln(kw, "  ID\tLABEL\tSTATUS\tOK\tERR\tLAST USED")
+		fmt.Fprintln(kw, "  ID\tLABEL\tPOOL\tSTATUS\tOK\tERR\tLAST USED")
 		for _, k := range p.Keys {
 			status := k.Status
 			if !k.Enabled {
 				status = "disabled"
 			}
-			fmt.Fprintf(kw, "  %s\t%s\t%s\t%d\t%d\t%s\n",
-				k.ID, k.Label, status, k.Success, k.Errors, ago(k.LastUsed))
+			fmt.Fprintf(kw, "  %s\t%s\t%s\t%s\t%d\t%d\t%s\n",
+				k.ID, k.Label, poolKey(k.Pool), status, k.Success, k.Errors, ago(k.LastUsed))
 		}
 		return flush(kw)
 	})
@@ -658,27 +657,30 @@ func (c *cliClient) cmdKeys(args []string) int {
 			return ok("no keys - add one with: keyrotator add-key " + p.ID + " <secret>")
 		}
 		w := newTable()
-		fmt.Fprintln(w, "ID\tLABEL\tSTATE\tSTATUS\tOK\tERR\tLAST USED")
+		fmt.Fprintln(w, "ID\tLABEL\tPOOL\tSTATE\tSTATUS\tOK\tERR\tLAST USED")
 		for _, k := range p.Keys {
 			state := "enabled"
 			if !k.Enabled {
 				state = "disabled"
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t%s\n",
-				k.ID, k.Label, state, k.Status, k.Success, k.Errors, ago(k.LastUsed))
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\n",
+				k.ID, k.Label, poolKey(k.Pool), state, k.Status, k.Success, k.Errors, ago(k.LastUsed))
 		}
 		return flush(w)
 	})
 }
 
 func (c *cliClient) cmdAddKey(args []string, flags map[string]string) int {
-	if !need(args, 2, "add-key <provider> <secret> [--label L]") {
+	if !need(args, 2, "add-key <provider> <secret> [--label L] [--pool P]") {
 		return 2
 	}
 	return c.withProvider(args[0], func(_ *stateResp, p *Provider) int {
 		body := map[string]any{"value": args[1]}
 		if l := flags["label"]; l != "" {
 			body["label"] = l
+		}
+		if pool := flags["pool"]; pool != "" {
+			body["pool"] = pool
 		}
 		var out struct {
 			Key *Key `json:"key"`
@@ -953,7 +955,7 @@ commands:
   on <provider> | off <provider>  enable / disable a provider
   url <provider>                  print the authenticated proxy URL
   keys <provider>                 list a provider's keys
-  add-key <provider> <secret>     add a key            [--label ALIAS] (default: key N)
+  add-key <provider> <secret>     add a key            [--label ALIAS] [--pool POOL]
   alias <provider> <key> <name>   rename a key (by id or alias)
   rm-key <provider> <key-id>      delete a key
   key-on <provider> <key-id>      enable a key   (key-off to disable)

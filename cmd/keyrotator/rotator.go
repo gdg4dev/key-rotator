@@ -1,14 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 )
 
 // Groups let some fields be sent only together. Rules with no group are
@@ -48,27 +46,18 @@ func activeRules(rules []InjectRule) []InjectRule {
 	return out
 }
 
-const maxGroupLen = 40
-
-var errGroupInvalid = errors.New("group must be 1-40 characters with no control characters")
-
-// validateGroup checks a group name from the API. An empty name means no group.
-func validateGroup(group string) error {
-	g := strings.TrimSpace(group)
-	if len([]rune(g)) > maxGroupLen || strings.ContainsFunc(g, unicode.IsControl) {
-		return errGroupInvalid
-	}
-	return nil
-}
-
-// applyInjection writes every active rule onto the outgoing request. Rules
-// with Source "key" receive the rotating key; "static" rules always send their
-// fixed value.
-func applyInjection(p *Provider, k *Key, req *http.Request) {
+// applyInjection writes every active rule onto the outgoing request. A key
+// place gets the key chosen for its pool (keyFor); a "static" rule always
+// sends its fixed value.
+func applyInjection(p *Provider, keyFor func(pool string) *Key, req *http.Request) {
 	for _, r := range activeRules(p.Inject) {
-		raw := k.Value
-		if r.Source == "static" {
-			raw = r.Value
+		raw := r.Value
+		if r.Source != "static" {
+			k := keyFor(poolKey(r.Pool))
+			if k == nil {
+				continue
+			}
+			raw = k.Value
 		}
 		value := r.Prefix + raw + r.Suffix
 		if strings.EqualFold(r.In, "query") {
@@ -88,15 +77,15 @@ const (
 	statusError    = "error"
 )
 
-// selectKey returns the next key to use for a request. allow, when non-nil,
-// filters out keys that are over their own rate limit. It reports whether
-// usable keys existed but were all filtered out.
-func (p *Provider) selectKey(allow func(*Key) bool) (*Key, bool) {
+// selectKey returns the next key from one pool. allow, when non-nil, filters
+// out keys that are over their own rate limit. It reports whether usable keys
+// existed but were all filtered out. The caller holds p.mu.
+func (p *Provider) selectKey(pool string, allow func(*Key) bool) (*Key, bool) {
 	now := time.Now().Unix()
 	var ready, cooling []*Key
 	blocked := false
 	for _, k := range p.Keys {
-		if !k.Enabled || k.Status == statusInvalid {
+		if poolKey(k.Pool) != pool || !k.Enabled || k.Status == statusInvalid {
 			continue
 		}
 		if allow != nil && !allow(k) {
@@ -109,46 +98,34 @@ func (p *Provider) selectKey(allow func(*Key) bool) (*Key, bool) {
 		}
 		ready = append(ready, k)
 	}
-	pool := ready
-	if len(pool) == 0 {
-		pool = cooling
+	candidates := ready
+	if len(candidates) == 0 {
+		candidates = cooling
 	}
-	if len(pool) == 0 {
+	if len(candidates) == 0 {
 		return nil, blocked
 	}
 	switch p.Strategy {
 	case "random":
-		return pool[rand.Intn(len(pool))], false
+		return candidates[rand.Intn(len(candidates))], false
 	case "least_used":
-		best := pool[0]
-		for _, k := range pool[1:] {
+		best := candidates[0]
+		for _, k := range candidates[1:] {
 			if k.LastUsed < best.LastUsed {
 				best = k
 			}
 		}
 		return best, false
-	default: // round_robin
-		p.rr = (p.rr + 1) % len(pool)
-		return pool[p.rr], false
-	}
-}
-
-// Pick exposes selection under the provider lock, optionally pinning a key by
-// label or id. The second result reports that keys exist but every one is over
-// its per-key rate limit.
-func (p *Provider) Pick(pin string, allow func(*Key) bool) (*Key, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if pin != "" {
-		for _, k := range p.Keys {
-			if k.ID == pin || strings.EqualFold(k.Label, pin) {
-				// A pinned key is an explicit choice; it ignores the per-key
-				// budget but still counts against the provider limit.
-				return k, false
-			}
+	default: // round_robin, one position per pool
+		if p.rr == nil {
+			p.rr = map[string]int{}
 		}
+		// Use the current position, then move on, so the first request gets the
+		// first key and the order matches the dashboard preview.
+		i := p.rr[pool] % len(candidates)
+		p.rr[pool] = i + 1
+		return candidates[i], false
 	}
-	return p.selectKey(allow)
 }
 
 // shortestKeyWait is how long until any usable key of this provider has a free

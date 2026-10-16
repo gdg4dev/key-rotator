@@ -32,8 +32,8 @@ func TestProxyFailoverAndMetrics(t *testing.T) {
 		ID: "p1", Name: "test", BaseURL: upstream.URL, Enabled: true, Strategy: "round_robin",
 		Inject: []InjectRule{{Enabled: true, In: "header", Name: "Authorization", Source: "key", Prefix: "Bearer "}},
 		Keys: []*Key{
-			{ID: "k1", Value: "good-key", Enabled: true, Status: statusOK},
-			{ID: "k2", Value: "bad-key", Enabled: true, Status: statusOK},
+			{ID: "k1", Value: "bad-key", Enabled: true, Status: statusOK},
+			{ID: "k2", Value: "good-key", Enabled: true, Status: statusOK},
 		},
 	})
 

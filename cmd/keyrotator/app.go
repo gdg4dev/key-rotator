@@ -281,7 +281,7 @@ func (a *App) probe(p *Provider, k *Key) (int, string) {
 		return 0, err.Error()
 	}
 	req.Header.Set("Accept", "application/json")
-	applyInjection(p, k, req)
+	applyInjection(p, p.probeFinder(k), req)
 	resp, err := a.testClient.Do(req)
 	if err != nil {
 		return 0, err.Error()
