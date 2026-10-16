@@ -216,52 +216,119 @@ tr:last-child td { border-bottom: 0; }
 .keybar { display: flex; gap: 8px; padding: 12px 18px; background: var(--sunken); border-top: 1px solid var(--line); }
 .keybar input { flex: 1; }
 .keybar input.alias { flex: 0 0 190px; }
-.panel { padding: 18px; background: var(--sunken); border-bottom: 1px solid var(--line); }
+.panel { padding: 4px 18px 20px; border-bottom: 1px solid var(--line); }
 .panel .row + .row { margin-top: 14px; }
 .grid2, .grid3 { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sep { height: 1px; background: var(--line); margin: 18px 0; }
 .hint { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
-.section-head2 { font-size: 13px; font-weight: 650; margin: 0 0 2px; }
-.rule {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; margin-bottom: 8px;
-  border: 1px solid var(--line); border-left: 3px solid transparent;
-  border-radius: var(--radius-sm); background: var(--sunken);
-}
-.rule input[type=checkbox] { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
-.rule-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.rule-line { display: flex; gap: 8px; min-width: 0; }
-.rule-line select { flex: 0 0 120px; }
-.rule-line .prefix { flex: 0 0 170px; }
-.rule-example { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
-.rule-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
-.rule .group-in { width: 130px; height: 30px; }
-.held-note { font-size: 11px; color: var(--warn); }
-/* Group rails: rows sharing a group share a colour on their left edge. */
-.rule.grouped[data-slot="0"] { border-left-color: #3b6fb6; }
-.rule.grouped[data-slot="1"] { border-left-color: #8a5cc2; }
-.rule.grouped[data-slot="2"] { border-left-color: #b7791f; }
-.rule.grouped[data-slot="3"] { border-left-color: #2b8a7a; }
-.rule.grouped[data-slot="4"] { border-left-color: #b5507a; }
-.rule.held { border-style: dashed; border-left-style: solid; opacity: .72; }
+.form-intro { margin: 14px 0 6px; }
+.form-intro a, .guide a { color: var(--accent); }
+.form-section { font-size: 13.5px; font-weight: 650; margin: 28px 0 2px; }
+.form-section + p { margin: 0 0 12px; }
+.form-actions { display: flex; gap: 8px; margin-top: 24px; }
+
+/* Both field lists use one column grid, so every column lines up:
+   on | where | name | prefix | key pool | group | remove */
+.fieldgrid { --cols: 22px 118px minmax(140px, 1fr) 140px 132px 132px 28px; }
+.fg-head, .rule { display: grid; grid-template-columns: var(--cols); column-gap: 8px; align-items: center; }
+.fg-head { padding: 0 0 6px 10px; font-size: 12px; color: var(--ink-3); }
+.fg-head > span { display: flex; align-items: center; gap: 5px; }
+.rule { row-gap: 4px; padding: 8px 0 8px 10px; border-top: 1px solid var(--line); }
+.rule:last-child { border-bottom: 1px solid var(--line); }
+.rule input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+.span-name { grid-column: 2 / 4; }
+.span-value { grid-column: 4 / 6; }
+.rule-example { grid-column: 2 / 7; font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+.rule.held .rule-example { color: var(--warn); }
+.rule.held > :not(.rule-example):not(.icon) { opacity: .55; }
+
+/* Group rails: rows in one group share a colour on their left edge and menu. */
+.rule.grouped { box-shadow: inset 3px 0 0 var(--g); }
+.rule.grouped [data-rf="group"] { border-color: var(--g); }
+.rule[data-slot="0"] { --g: #3b6fb6; }
+.rule[data-slot="1"] { --g: #8a5cc2; }
+.rule[data-slot="2"] { --g: #b7791f; }
+.rule[data-slot="3"] { --g: #2b8a7a; }
+.rule[data-slot="4"] { --g: #b5507a; }
 .rc-group { color: var(--accent); font-weight: 600; }
 .rule-chip.held { opacity: .55; border-style: dashed; }
-.quick-add { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-.preview { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.card-preview { margin: 0; border-width: 0 0 1px; border-radius: 0; padding: 14px 18px; }
+.quick-add { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+
+/* "?" help: the tip shows on hover and on keyboard focus. */
+.help {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; border-radius: 50%;
+  border: 1px solid var(--line-strong); background: transparent; color: var(--ink-3);
+  font-size: 10.5px; font-weight: 700; cursor: help;
+}
+.help:hover, .help:focus-visible { background: transparent; color: var(--ink); border-color: var(--ink-3); }
+.help::after {
+  content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: -8px; z-index: 20;
+  width: 270px; padding: 9px 11px; border-radius: var(--radius-sm);
+  background: var(--ink); color: var(--bg); box-shadow: 0 8px 24px rgba(0,0,0,.22);
+  font: 400 12.5px/1.45 var(--sans); text-align: left; white-space: normal;
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s;
+}
+.help.help-left::after { left: auto; right: -8px; }
+.help:hover::after, .help:focus-visible::after { opacity: 1; visibility: visible; }
+.lbl .help { margin-left: 3px; vertical-align: -3px; }
+.provider { overflow: visible; }
+
+/* Key pools on the provider card: one table per pool. */
+.pool-head { padding: 12px 18px 4px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); }
+.pool-name { font-weight: 650; color: var(--ink); }
+
+/* Preview: a flat section; the sample request is the only box. */
+.preview { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); }
+.card-preview { margin: 0; padding: 14px 18px; border-top: 0; border-bottom: 1px solid var(--line); }
 .pv-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pv-head .grow { flex: 1; }
 .pv-title { font-weight: 650; }
-.pv-step { font-variant-numeric: tabular-nums; font-size: 13px; min-width: 76px; text-align: center; }
-.pv-order { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.pv-chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--sunken); color: var(--ink-2); }
+.pv-step { min-width: 104px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.pv-explain { margin: 4px 0 0; }
+.pv-turns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.pv-pool { min-width: 72px; font-size: 12px; font-weight: 650; color: var(--ink-2); }
+.pv-chip { padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--sunken); color: var(--ink-2); font-size: 12px; }
 .pv-chip.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.pv-key { margin-top: 8px; font-size: 13px; }
+.pv-again { color: var(--ink-3); font-size: 14px; }
+.pv-key { margin-top: 10px; font-size: 13px; }
 .pv-req { margin: 10px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--sunken); font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .pv-warn { margin-top: 8px; font-size: 12.5px; color: var(--warn); }
 .pv-bad { margin-top: 8px; font-size: 12.5px; color: var(--bad); }
-@media (max-width: 760px) { .rule-line { flex-wrap: wrap; } .rule-line select, .rule-line .prefix { flex: 1 1 140px; } }
+
+/* Guide page */
+.guide { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 36px; align-items: start; }
+.guide-toc { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 1px; font-size: 13px; }
+.guide-toc a { padding: 5px 10px; border-radius: var(--radius-sm); color: var(--ink-2); text-decoration: none; }
+.guide-toc a:hover { background: var(--sunken); color: var(--ink); }
+.guide-body { max-width: 740px; font-size: 14.5px; line-height: 1.65; }
+.guide-body h2 { margin: 36px 0 8px; font-size: 18px; letter-spacing: -0.01em; scroll-margin-top: 20px; }
+.guide-body h2:first-child { margin-top: 0; }
+.guide-body p, .guide-body ul { margin: 0 0 12px; }
+.guide-body ul { padding-left: 20px; }
+.guide-body li { margin-bottom: 5px; }
+.guide-note { padding-left: 12px; border-left: 3px solid var(--line-strong); color: var(--ink-2); font-size: 13.5px; }
+.guide-pre { margin: 0 0 14px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--sunken); font: 12.5px/1.6 var(--mono); overflow-x: auto; }
+.guide-table { margin: 4px 0 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13.5px; }
+.guide-table th, .guide-table td { padding: 8px 12px; vertical-align: top; }
+
+@media (max-width: 980px) {
+  .guide { grid-template-columns: 1fr; gap: 16px; }
+  .guide-toc { position: static; flex-direction: row; flex-wrap: wrap; }
+}
+@media (max-width: 760px) {
+  /* Narrow screens: each control gets its own line next to the switch. */
+  .fg-head { display: none; }
+  .rule { grid-template-columns: 22px 1fr; }
+  .rule > :not(input[type=checkbox]) { grid-column: 2; }
+  /* The add-key bar stacks instead of pushing the card wider than the screen. */
+  .keybar { flex-wrap: wrap; }
+  .keybar input, .keybar input.alias { flex: 1 1 100%; }
+  .p-actions { margin-left: 0; }
+}
+.keybar:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+
 
 
 
@@ -310,10 +377,10 @@ tr:last-child td { border-bottom: 0; }
   .setting { grid-template-columns: 1fr; gap: 10px; }
 }
 @media (max-width: 760px) {
-  .app { grid-template-columns: 1fr; }
+  .app { grid-template-columns: minmax(0, 1fr); }  /* never wider than the screen */
   .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 14px; border-right: 0; border-bottom: 1px solid var(--line); }
   .brand { padding: 0 8px 0 0; }
-  .nav { display: flex; gap: 2px; }
+  .nav { display: flex; flex-wrap: wrap; gap: 2px; }
   .side-foot { display: none; }
   .main { padding: 20px 16px 48px; }
   .grid3, .grid2 { grid-template-columns: 1fr; }
@@ -338,6 +405,7 @@ tr:last-child td { border-bottom: 0; }
       <a href="#providers" data-nav="providers">Providers <span class="count" id="nav-providers"></span></a>
       <a href="#activity" data-nav="activity">Activity <span class="count" id="nav-activity"></span></a>
       <a href="#settings" data-nav="settings">Settings</a>
+      <a href="#guide" data-nav="guide">Guide</a>
     </nav>
     <div class="side-foot">
       <span id="side-version">—</span>
@@ -368,6 +436,175 @@ tr:last-child td { border-bottom: 0; }
       </div>
     </section>
 
+    <section data-page="guide" hidden>
+      <div class="guide">
+        <nav class="guide-toc" aria-label="Guide contents">
+          <a href="#g-idea">The idea</a>
+          <a href="#g-providers">Providers</a>
+          <a href="#g-keys">Keys, aliases and pools</a>
+          <a href="#g-rotation">Rotation modes</a>
+          <a href="#g-failures">When a key fails</a>
+          <a href="#g-places">Where the key goes</a>
+          <a href="#g-fixed">Fixed values</a>
+          <a href="#g-groups">Groups</a>
+          <a href="#g-limits">Rate limits</a>
+          <a href="#g-tokens">Tokens</a>
+          <a href="#g-pinning">Pinning a key</a>
+          <a href="#g-running">Keeping it running</a>
+          <a href="#g-code">Using it from code</a>
+        </nav>
+
+        <article class="guide-body">
+          <h2 id="g-idea">The idea</h2>
+          <p>KeyRotator sits between your code and an API. Your code sends its requests to KeyRotator instead of the
+            API. KeyRotator adds one of your keys, forwards the request, and passes the answer back unchanged,
+            streaming included.</p>
+          <pre class="guide-pre">your code  ──►  KeyRotator (127.0.0.1:8787)  ──►  the API
+                    adds the next key
+                    retries with another key if one fails</pre>
+          <p>Your code never needs a real key. The keys live in one place, and you can add, rest or remove them
+            without touching any code.</p>
+
+          <h2 id="g-providers">Providers</h2>
+          <p>A <b>provider</b> is one API you call, such as OpenAI. It has:</p>
+          <ul>
+            <li><b>Base URL</b>: the API's address, for example <code>https://api.openai.com/v1</code>.</li>
+            <li><b>Proxy URL</b>: the address your code uses instead, shown on the provider card with a
+              <b>Copy URL</b> button. A request to <code>…/p/&lt;id&gt;/chat/completions</code> goes to
+              <code>&lt;base URL&gt;/chat/completions</code>.</li>
+            <li><b>Keys</b>, a <b>rotation mode</b>, and the places the key is sent, all explained below.</li>
+          </ul>
+          <p>Switching a provider off makes its proxy URL answer <code>404</code> until you switch it back on.</p>
+
+          <h2 id="g-keys">Keys, aliases and pools</h2>
+          <p>Each key has an <b>alias</b>, a short name such as <code>billing</code>. A key added without one
+            is called <code>key 1</code>, <code>key 2</code> and so on, using the lowest free number. Aliases are
+            unique within a provider, ignoring upper and lower case.</p>
+          <p>Every key belongs to a <b>key pool</b>. Unless you choose otherwise, that is the <code>default</code>
+            pool, and most providers never need another one. The provider card shows one table per pool.</p>
+          <p>Pools matter when an API needs <b>two different credentials</b> on every request, for example an
+            account key in a header and a project key in the URL. Put the account keys in one pool and the project
+            keys in another, then set each place's <b>Key pool</b> column. Every request then gets one key from each
+            pool, and each pool takes turns on its own.</p>
+          <p class="guide-note">If a request that used keys from two pools fails, KeyRotator cannot tell which key
+            the API objected to, so both are treated as failed.</p>
+
+          <h2 id="g-rotation">Rotation modes</h2>
+          <p>The rotation mode decides which key the next request uses. With three keys, <code>a</code>,
+            <code>b</code> and <code>c</code>:</p>
+          <table class="guide-table">
+            <thead><tr><th>Mode</th><th>Requests 1 to 6 use</th><th>Good for</th></tr></thead>
+            <tbody>
+              <tr><td><b>Round robin</b></td><td class="mono">a, b, c, a, b, c</td><td>Spreading load evenly. The order repeats from the first key.</td></tr>
+              <tr><td><b>Random</b></td><td class="mono">b, a, a, c, b, a</td><td>No pattern at all. Even over time, uneven in the short run.</td></tr>
+              <tr><td><b>Least used</b></td><td class="mono">a, b, c, a, b, c</td><td>Giving every key the longest rest. Starts with the key that has waited longest.</td></tr>
+            </tbody>
+          </table>
+          <p>Only usable keys take part: a switched-off key is skipped, and so is a resting or rejected one (see
+            below). Open <b>Preview</b> on a provider card, or look at the bottom of the edit form, and use
+            <b>Prev</b> and <b>Next</b> to see exactly which key each request uses. Nothing is sent while you
+            preview.</p>
+
+          <h2 id="g-failures">When a key fails</h2>
+          <table class="guide-table">
+            <thead><tr><th>The API answers</th><th>KeyRotator</th></tr></thead>
+            <tbody>
+              <tr><td><code>429</code>, any <code>5xx</code>, or no answer</td><td>The key <b>rests</b> (shown as cooling) for the time the API asks for in <code>Retry-After</code>, or for the cooldown in Settings, 60 seconds by default. The request is retried with another key.</td></tr>
+              <tr><td><code>401</code> or <code>403</code></td><td>The key is marked <b>invalid</b> and set aside. The request is retried with another key.</td></tr>
+              <tr><td>anything else, including <code>400</code></td><td>The answer goes straight back to your code. The key stays healthy.</td></tr>
+            </tbody>
+          </table>
+          <p>A request tries up to <b>Max retries</b> keys (Settings, 3 by default). If every key is resting, a
+            resting key is used anyway rather than failing outright.</p>
+          <p>The <b>health check path</b> is a cheap <code>GET</code> path on the API, such as <code>/models</code>.
+            KeyRotator calls it with a key to test it: when you press <b>Test</b>, and every 90 seconds for keys
+            whose rest is over and for keys marked invalid. A key that passes becomes healthy again on its own. <b>Reset</b> clears a
+            key's state by hand.</p>
+
+          <h2 id="g-places">Where the key goes</h2>
+          <p>APIs expect the key in different places. Under <b>Where your API key is sent</b>, each row is one
+            place:</p>
+          <ul>
+            <li><b>Where</b>: a request header, or a parameter in the URL.</li>
+            <li><b>Name</b>: the header or parameter name, such as <code>Authorization</code> or <code>api_key</code>.</li>
+            <li><b>Prefix</b>: text written just before the key. <code>Bearer </code> (with its space) is the most common.</li>
+            <li><b>Key pool</b>: which pool this place takes its key from.</li>
+          </ul>
+          <p>The line under each row shows exactly what it adds, for example
+            <code>→ Authorization: Bearer ‹key›</code>. The <b>Add a place</b> buttons fill in the common ones.
+            Every place from the same pool gets the same key on a given request. If your code sends a value for one
+            of these headers or parameters itself, KeyRotator replaces it.</p>
+
+          <h2 id="g-fixed">Fixed values</h2>
+          <p>Some APIs also want a header that never changes, such as <code>anthropic-version: 2023-06-01</code>.
+            Add it under <b>Fixed values</b> and it is sent on every request.</p>
+
+          <h2 id="g-groups">Groups</h2>
+          <p>Fields with no group are independent: each one is sent whenever it is switched on, in any
+            combination. Fields in the same <b>group</b> are sent together or not at all. If one member is
+            switched off, or has no name, the whole group waits, and its rows say so.</p>
+          <p>Example: a tenant API wants <code>x-api-key</code> and <code>x-tenant: acme</code> only as a pair.
+            Put both in <b>Group 1</b>. Switching off <code>x-tenant</code> now also stops <code>x-api-key</code>
+            from being sent. Pick <b>+ New group</b> in the Group column to start a group, then choose the same
+            group on the other rows.</p>
+
+          <h2 id="g-limits">Rate limits</h2>
+          <p>Two limits, both in requests per second, keep you under an API's quota:</p>
+          <ul>
+            <li><b>Rate limit</b>: all traffic to one provider, across its keys. Requests over the limit get a
+              <code>429</code> at once, with a <code>Retry-After</code> header.</li>
+            <li><b>Per-key rate</b>: traffic through any single key. A key at its limit is skipped and another key
+              is used. Only when every key is at its limit does the request get a <code>429</code>.</li>
+          </ul>
+          <p>Settings holds the default for every provider. On a provider, <b>"same as Settings"</b> (a blank
+            field) means it uses that default; a number overrides it for this provider only; <code>0</code>
+            means no limit. A limit of 5 allows a burst of 5 requests at once, then one every 200 ms. Being
+            throttled by KeyRotator never counts against a key.</p>
+
+          <h2 id="g-tokens">Tokens</h2>
+          <ul>
+            <li><b>Proxy token</b>: a password for the proxy URLs. Clients must include it, so someone who only
+              has the URL cannot use your keys. The URL shown on the card already contains it. Set one in Settings
+              for all providers, or on a provider to override it. It is removed before the request reaches the
+              API.</li>
+            <li><b>Admin token</b>: protects the <code>/api</code> endpoints that the dashboard, CLI and TUI use, and
+              <code>/metrics</code>. The dashboard asks for it once and remembers it.</li>
+          </ul>
+          <p>KeyRotator only listens on <code>127.0.0.1</code> unless you change it. Set both tokens before
+            opening the port to other machines; KeyRotator warns at startup if you don't.</p>
+
+          <h2 id="g-pinning">Pinning a key</h2>
+          <p>Every answer says which key served it, in the <code>X-Rotator-Key</code> header (with
+            <code>X-Rotator-Key-Id</code> and <code>X-Rotator-Provider</code>). To use one key on purpose, send
+            <code>X-Rotator-Key: billing</code>, with an alias or id. A pinned key skips its per-key rate limit
+            but still counts toward the provider's.</p>
+
+          <h2 id="g-running">Keeping it running</h2>
+          <ul>
+            <li><code>keyrotator start</code> runs it in the background, so it keeps going after you close the
+              terminal. <code>keyrotator stop</code> and <code>keyrotator status</code> do what they say.</li>
+            <li><b>Start at login</b> in Settings starts it whenever you sign in, on Windows, macOS and Linux.</li>
+            <li>It also runs as a Windows service, as a systemd service, or in Docker.</li>
+            <li><code>keyrotator tui</code> opens a full-screen dashboard in the terminal, and
+              <code>keyrotator help</code> lists every command.</li>
+          </ul>
+
+          <h2 id="g-code">Using it from code</h2>
+          <p>Copy a provider's URL and use it as the base URL. With the OpenAI SDK for Python:</p>
+          <pre class="guide-pre">from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:8787/p/&lt;id&gt;/",
+    api_key="not-used",  # KeyRotator puts a real key here
+)
+print(client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Say hi"}],
+).choices[0].message.content)</pre>
+        </article>
+      </div>
+    </section>
+
     <section data-page="settings" hidden>
       <div class="surface" id="settings-form"></div>
     </section>
@@ -391,6 +628,7 @@ const providerEdit = {};
 const previewOpen = {};
 const keyDraft = {};
 const keyAliasDraft = {};
+const keyPoolDraft = {};
 let newOpen = false;
 let logSig = '';
 let page = 'providers';
@@ -400,9 +638,11 @@ const PAGES = {
   providers: { title: 'Providers', sub: 'Pooled upstream keys, injected into every request' },
   activity:  { title: 'Activity',  sub: 'Most recent proxied requests, newest first' },
   settings:  { title: 'Settings',  sub: 'Behaviour, security and start-up' },
+  guide:     { title: 'Guide',     sub: 'How KeyRotator works, and what every setting does' },
 };
 
 const token = () => localStorage.getItem('kr_token') || '';
+let tokenAsked = false;
 
 async function api(path, method='GET', body){
   const headers = { 'Content-Type':'application/json' };
@@ -411,6 +651,11 @@ async function api(path, method='GET', body){
   try {
     res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   } catch(e){ throw new Error('cannot reach server'); }
+  if (res.status === 401 && !tokenAsked){
+    tokenAsked = true;
+    const t = window.prompt('This KeyRotator is protected by an admin token. Enter it to continue:');
+    if (t && t.trim()){ localStorage.setItem('kr_token', t.trim()); return api(path, method, body); }
+  }
   const text = await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch(e){ data = { error: text }; }
@@ -477,7 +722,19 @@ function showPage(name, { fromHash = false } = {}){
   if (!fromHash && location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
   if (name === 'settings') renderSettings();
 }
-window.addEventListener('hashchange', () => showPage(location.hash.slice(1), { fromHash: true }));
+// Hashes name a page (#settings), or a Guide section (#g-rotation), which opens
+// the Guide and scrolls to that section.
+function route(){
+  const h = location.hash.slice(1);
+  if (h.startsWith('g-')){
+    showPage('guide', { fromHash: true });
+    const el = document.getElementById(h);
+    if (el) el.scrollIntoView({ block: 'start' });
+    return;
+  }
+  showPage(h, { fromHash: true });
+}
+window.addEventListener('hashchange', route);
 
 // ---------- data loading (never rewrites a form you are typing in) ----------
 
@@ -642,11 +899,28 @@ function renderSettings(){
 // ---------- provider form (fields + injection rules) ----------
 
 // ---------- request fields ----------
-// Each row says plainly where something goes: [Header|URL query] [name]
-// [prefix], with a live example line under it. Below the rows, a preview shows
-// a whole sample request and steps through the key rotation, so the effect of
-// every setting is visible before saving. Grouped rows (same group name) are
-// sent together, all or nothing.
+// Two lists share one column grid, so every column lines up:
+//   key places:   on | where | name | prefix | key pool | group | remove
+//   fixed values: on | header name    | value          | group | remove
+// Each row shows the exact line it adds underneath. A preview below the lists
+// shows a whole sample request and steps through the key rotation.
+
+// Short explanations behind the "?" buttons.
+const HELP = {
+  rotation: 'Which key the next request uses. Round robin: each key in turn, then back to the first. Random: any usable key. Least used: the key that has waited longest. Each key pool takes turns on its own.',
+  health: 'A cheap GET path on the API, such as /models. KeyRotator calls it to test a key: when you press Test, and every 90 seconds for keys whose rest is over or that were rejected, so keys that work again come back on their own.',
+  rate: 'The most requests per second this provider sends to the API, across all of its keys. Requests over the limit get a 429 straight away. Blank means: use the value from Settings. 0 means no limit.',
+  keyRate: 'The most requests per second through any one key. A key at its limit is skipped and another key is used. Blank means: use the value from Settings. 0 means no limit.',
+  proxyToken: 'A password for this provider\'s proxy URL. Clients must include it, so someone who only has the URL cannot use your keys. Blank means: use the token from Settings, if one is set.',
+  where: 'Where the key goes: a request header, or a parameter in the URL (?name=key).',
+  prefix: 'Text written just before the key. Many APIs want "Bearer " followed by the key; keep the space.',
+  pool: 'Which set of keys this place takes turns through. Every key is in the "default" pool unless you picked another pool when adding it.',
+  group: 'Fields in the same group are sent together: if any of them is switched off, none of them is sent. "None" means the field is sent on its own.',
+};
+
+function help(text, left){
+  return '<button type="button" class="help' + (left ? ' help-left' : '') + '" data-tip="' + esc(text) + '" aria-label="' + esc(text) + '">?</button>';
+}
 
 // Common places an API key goes. Each becomes an "Add a place" button.
 const KEY_PRESETS = [
@@ -656,20 +930,32 @@ const KEY_PRESETS = [
   { id: 'q-api_key', label: '?api_key= in the URL',  in: 'query',  name: 'api_key',        prefix: '' },
 ];
 
+const STRATEGY_NAME = { round_robin: 'Round robin', random: 'Random', least_used: 'Least used' };
 const STRATEGY_TEXT = {
-  round_robin: 'Round robin: keys take turns, in order.',
-  random: 'Random: each request picks any usable key.',
-  least_used: 'Least used: the key that has waited longest goes next.',
+  round_robin: 'Round robin: each key takes a turn, in order, then it starts again from the first.',
+  random: 'Random: each request picks any usable key, so there is no fixed order.',
+  least_used: 'Least used: the key that has waited longest goes next, so the keys end up taking turns.',
 };
 
-// Colours for group rails. Each group takes the next one, wrapping around.
-const GROUP_SLOTS = 5;
+const DEFAULT_POOL = 'default';
+const GROUP_SLOTS = 5;  // colours for group rails; each group takes the next one
 
-// groupOf is the comparable form of a group name: "Beta" and " beta " match.
+// poolOf and groupOf give the comparable form of a name, as the server does.
+function poolOf(name){ return String(name || '').trim().toLowerCase() || DEFAULT_POOL; }
 function groupOf(r){ return String(r.group || '').trim().toLowerCase(); }
 
-// heldGroups returns the groups that are held back: one of their members is off
-// or has no name. This mirrors activeRules in rotator.go, the source of truth.
+// poolNames lists the pools used by keys and rules: default first, then A-Z.
+function poolNames(keys, rules){
+  const seen = new Map([[DEFAULT_POOL, DEFAULT_POOL]]);
+  const add = n => { n = String(n || '').trim(); if (n && !seen.has(n.toLowerCase())) seen.set(n.toLowerCase(), n); };
+  (keys || []).forEach(k => add(k.pool));
+  (rules || []).forEach(r => { if (r.source !== 'static') add(r.pool); });
+  const rest = [...seen.entries()].filter(([k]) => k !== DEFAULT_POOL).sort((a, b) => a[0].localeCompare(b[0]));
+  return [DEFAULT_POOL].concat(rest.map(([, v]) => v));
+}
+
+// heldGroups returns the groups held back because a member is off or unnamed.
+// It mirrors activeRules in rotator.go, which is the source of truth.
 function heldGroups(rules){
   const held = new Set();
   for (const r of rules){
@@ -679,144 +965,193 @@ function heldGroups(rules){
   return held;
 }
 
-function groupInput(r){
-  return '<span class="rule-side">' +
-    '<input data-rf="group" class="group-in mono" list="group-names" placeholder="no group" value="' + esc(r.group || '') + '"' +
-    ' aria-label="Group, optional" spellcheck="false">' +
-    '<span class="held-note" hidden>held</span>' +
-  '</span>';
-}
+const removeButton = '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove this field">×</button>';
+const onBox = r => '<input type="checkbox" data-rf="enabled" aria-label="Send this field"' + (r.enabled !== false ? ' checked' : '') + '>';
+// The group menu's options are filled in by refreshForm from the whole form.
+const groupSelect = r => '<select data-rf="group" aria-label="Group" data-current="' + esc(r.group || '') + '"></select>';
 
-const removeButton = '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>';
-
-function keyRuleHTML(r){
-  r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'', group:'' }, r || {});
+function keyRuleHTML(r, pools){
+  r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'', group:'', pool:'' }, r || {});
   const locs = [['header','Header'],['query','URL query']].map(([v, l]) =>
     '<option value="' + v + '"' + (r.in === v ? ' selected' : '') + '>' + l + '</option>').join('');
+  const poolOpts = (pools && pools.length ? pools : [DEFAULT_POOL]).map(n =>
+    '<option value="' + esc(n) + '"' + (poolOf(n) === poolOf(r.pool) ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
   return '<div class="rule" data-kind="key" data-suffix="' + esc(r.suffix) + '">' +
-    '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
-    '<div class="rule-main">' +
-      '<div class="rule-line">' +
-        '<select data-rf="in" aria-label="Where">' + locs + '</select>' +
-        '<input data-rf="name" class="mono" placeholder="name, e.g. Authorization" value="' + esc(r.name) + '" aria-label="Name" spellcheck="false">' +
-        '<input data-rf="prefix" class="mono prefix" placeholder="prefix (optional)" value="' + esc(r.prefix) + '" aria-label="Prefix" spellcheck="false">' +
-      '</div>' +
-      '<div class="rule-example mono" data-example></div>' +
-    '</div>' +
-    groupInput(r) + removeButton +
+    onBox(r) +
+    '<select data-rf="in" aria-label="Where">' + locs + '</select>' +
+    '<input data-rf="name" class="mono" placeholder="e.g. Authorization" value="' + esc(r.name) + '" aria-label="Name" spellcheck="false">' +
+    '<input data-rf="prefix" class="mono" placeholder="none" value="' + esc(r.prefix) + '" aria-label="Prefix" spellcheck="false">' +
+    '<select data-rf="pool" aria-label="Key pool">' + poolOpts + '</select>' +
+    groupSelect(r) + removeButton +
+    '<div class="rule-example mono" data-example></div>' +
   '</div>';
 }
 
 function fixedRuleHTML(r){
   r = Object.assign({ enabled:true, in:'header', name:'', value:'', prefix:'', suffix:'', group:'' }, r || {});
-  return '<div class="rule" data-kind="fixed" data-in="' + esc(r.in) + '" data-prefix="' + esc(r.prefix) + '" data-suffix="' + esc(r.suffix) + '">' +
-    '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
-    '<div class="rule-main">' +
-      '<div class="rule-line">' +
-        '<input data-rf="name" class="mono" placeholder="header name, e.g. x-api-version" value="' + esc(r.name) + '" aria-label="Header name" spellcheck="false">' +
-        '<input data-rf="value" class="mono" placeholder="value, e.g. 2024-02-01" value="' + esc(r.value) + '" aria-label="Value" spellcheck="false">' +
-      '</div>' +
-      '<div class="rule-example mono" data-example></div>' +
-    '</div>' +
-    groupInput(r) + removeButton +
+  return '<div class="rule fixed" data-kind="fixed" data-in="' + esc(r.in) + '" data-prefix="' + esc(r.prefix) + '" data-suffix="' + esc(r.suffix) + '">' +
+    onBox(r) +
+    '<input data-rf="name" class="mono span-name" placeholder="e.g. anthropic-version" value="' + esc(r.name) + '" aria-label="Header name" spellcheck="false">' +
+    '<input data-rf="value" class="mono span-value" placeholder="e.g. 2023-06-01" value="' + esc(r.value) + '" aria-label="Value" spellcheck="false">' +
+    groupSelect(r) + removeButton +
+    '<div class="rule-example mono" data-example></div>' +
   '</div>';
 }
 
 function ruleName(row){ return row.querySelector('[data-rf="name"]').value.trim(); }
 
-// rowExample is the one line a row adds to a request, with ‹key› for the key.
+// rowGroup is the group a row belongs to. Until refreshForm has filled the menu
+// in, the saved name is used; after that, the menu (where "" means None).
+function rowGroup(row){
+  const sel = row.querySelector('[data-rf="group"]');
+  if (!sel.dataset.options) return sel.dataset.current || '';
+  return sel.value === '__new' ? '' : sel.value;
+}
+
+// rowExample is the line a row adds to a request, with ‹key› for the key.
 function rowExample(row){
   const name = ruleName(row);
   if (!name) return 'Give it a name to see what is sent.';
   const isKey = row.dataset.kind === 'key';
   const where = isKey ? row.querySelector('[data-rf="in"]').value : (row.dataset.in || 'header');
-  const value = isKey
-    ? row.querySelector('[data-rf="prefix"]').value + '‹key›' + (row.dataset.suffix || '')
-    : (row.dataset.prefix || '') + row.querySelector('[data-rf="value"]').value + (row.dataset.suffix || '');
+  let value;
+  if (isKey){
+    const pool = poolOf(row.querySelector('[data-rf="pool"]').value);
+    value = row.querySelector('[data-rf="prefix"]').value + (pool === DEFAULT_POOL ? '‹key›' : '‹' + pool + ' key›') + (row.dataset.suffix || '');
+  } else {
+    value = (row.dataset.prefix || '') + row.querySelector('[data-rf="value"]').value + (row.dataset.suffix || '');
+  }
   return where === 'query' ? '→ …?' + name + '=' + value : '→ ' + name + ': ' + value;
 }
 
-// refreshForm redraws everything derived from the rows: group rails, the
-// example under each row, and the preview. It runs on every edit.
+// nextGroupName is the lowest "Group N" not in use, like "key N" for aliases.
+function nextGroupName(names){
+  const used = new Set(names.map(n => n.toLowerCase()));
+  for (let n = 1; ; n++) if (!used.has('group ' + n)) return 'Group ' + n;
+}
+
+// refreshForm redraws everything derived from the rows: the group menus, group
+// rails and held state, each row's example line, and the preview.
 function refreshForm(panel){
   if (!panel) return;
   const rows = [...panel.querySelectorAll('.rule')];
-  const info = rows.map(row => {
-    const label = row.querySelector('[data-rf="group"]').value.trim();
-    return {
-      row, label, key: label.toLowerCase(),
-      ok: row.querySelector('[data-rf="enabled"]').checked && ruleName(row) !== '',
-    };
-  });
+  const groupOfRow = rowGroup;
+  // Group names in use, first spelling wins, in order of appearance.
+  const names = [];
+  rows.forEach(row => { const g = groupOfRow(row).trim(); if (g && !names.some(n => n.toLowerCase() === g.toLowerCase())) names.push(g); });
+
+  const info = rows.map(row => ({
+    row, label: groupOfRow(row).trim(), key: groupOfRow(row).trim().toLowerCase(),
+    ok: row.querySelector('[data-rf="enabled"]').checked && ruleName(row) !== '',
+  }));
   const held = new Set(info.filter(x => x.key && !x.ok).map(x => x.key));
-  const slot = {}; let next = 0;
+
   for (const x of info){
     const r = x.row;
+    const sel = r.querySelector('[data-rf="group"]');
+    const options = '<option value="">None</option>' +
+      names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') +
+      '<option value="__new">+ New group</option>';
+    if (sel.dataset.options !== options){ sel.innerHTML = options; sel.dataset.options = options; }
+    const match = names.find(n => n.toLowerCase() === x.key);
+    sel.value = match || '';
+    sel.dataset.current = sel.value;
+
     r.classList.toggle('grouped', !!x.key);
-    if (x.key){
-      if (!(x.key in slot)) slot[x.key] = (next++) % GROUP_SLOTS;
-      r.dataset.slot = slot[x.key];
-    } else {
-      delete r.dataset.slot;
-    }
+    if (x.key) r.dataset.slot = names.findIndex(n => n.toLowerCase() === x.key) % GROUP_SLOTS;
+    else delete r.dataset.slot;
     const isHeld = !!x.key && held.has(x.key);
     r.classList.toggle('held', isHeld);
-    const note = r.querySelector('.held-note');
-    note.hidden = !isHeld;
-    note.title = isHeld ? 'Held: every field in group "' + x.label + '" must be on and named' : '';
-    r.querySelector('[data-example]').textContent = rowExample(r);
+    const ex = r.querySelector('[data-example]');
+    ex.textContent = isHeld
+      ? 'Not sent: a field in "' + x.label + '" is off or has no name, so the whole group waits.'
+      : rowExample(r);
   }
-  // Offer the group names already in use, so a typed name matches exactly.
-  const names = [...new Set(info.filter(x => x.label).map(x => x.label))];
-  document.getElementById('group-names').innerHTML = names.map(n => '<option value="' + esc(n) + '">').join('');
+  panel.querySelectorAll('[data-keyrules], [data-fixedrules]').forEach(list => {
+    const head = list.querySelector('.fg-head');
+    if (head) head.hidden = !list.querySelector('.rule');
+  });
   renderFormPreview(panel);
 }
 
 // ---------- request preview ----------
-// A client-side simulation of key selection (rotator.go selectKey). It only
+// A client-side simulation of key selection (selectKey in rotator.go). It only
 // reads the keys it is given and never sends anything.
 
-const pvStep = {};    // preview scope -> current request index, 0-based
-const pvRandom = {};  // preview scope -> random picks made so far
+const pvStep = {};    // preview scope -> request index within the cycle
+const pvRandom = {};  // preview scope + pool -> random picks made so far
 
 function maskKey(v){
   v = String(v || '');
   return v.length > 10 ? v.slice(0, 4) + '…' + v.slice(-4) : '••••';
 }
 
-// previewPool mirrors selection: ready keys first, cooling keys only as a fallback.
-function previewPool(keys){
+// usableKeys mirrors selection: ready keys first, resting keys only as a fallback.
+function usableKeys(keys){
   const now = Math.floor(Date.now() / 1000);
   const usable = keys.filter(k => k.enabled && k.status !== 'invalid');
   const ready = usable.filter(k => !(k.status === 'cooldown' && k.cooldownUntil > now));
   return ready.length ? ready : usable;
 }
 
-function previewPick(scope, strategy, pool, step){
-  const n = pool.length;
-  if (!n) return null;
-  if (strategy === 'random'){
-    const picks = pvRandom[scope] || (pvRandom[scope] = []);
-    while (picks.length <= step) picks.push(Math.floor(Math.random() * n));
-    return pool[picks[step] % n];
-  }
-  if (strategy === 'least_used'){
-    const used = pool.map(k => k.lastUsed || 0);
-    let pick = 0;
-    for (let s = 0; s <= step; s++){
-      pick = used.indexOf(Math.min(...used));
-      used[pick] = 1e15 + s; // just used, so it goes to the back of the line
-    }
-    return pool[pick];
-  }
-  return pool[step % n];
+// turnOrder is the order keys take turns in: list order for round robin, and
+// longest-waiting first for least used.
+function turnOrder(strategy, keys){
+  if (strategy === 'least_used') return keys.slice().sort((a, b) => (a.lastUsed || 0) - (b.lastUsed || 0));
+  return keys;
 }
 
+// neededPools mirrors pool.go: the pools that sent key places draw from.
+function neededPools(rules){
+  const held = heldGroups(rules);
+  const out = [];
+  for (const r of rules){
+    if (r.source === 'static' || !r.enabled || !String(r.name || '').trim()) continue;
+    const g = groupOf(r);
+    if (g && held.has(g)) continue;
+    const p = poolOf(r.pool);
+    if (!out.includes(p)) out.push(p);
+  }
+  return out.length ? out : [DEFAULT_POOL];
+}
+
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+
 function previewHTML(scope, m){
-  const step = pvStep[scope] || 0;
-  const pool = previewPool(m.keys || []);
-  const key = previewPick(scope, m.strategy, pool, step);
-  const keyText = key ? maskKey(key.value) : '‹your key›';
+  const random = m.strategy === 'random';
+  const pools = neededPools(m.rules).map(name => ({ name, keys: usableKeys((m.keys || []).filter(k => poolOf(k.pool) === name)) }));
+  const anyKeys = pools.some(p => p.keys.length);
+
+  // Round robin and least used repeat: the whole cycle is the least common
+  // multiple of the pool sizes. Random has no cycle, so it keeps a history.
+  let cycle = 1;
+  pools.forEach(p => { if (p.keys.length) cycle = Math.min(360, cycle / gcd(cycle, p.keys.length) * p.keys.length); });
+  let step = pvStep[scope] || 0;
+  step = random ? Math.max(0, step) : ((step % cycle) + cycle) % cycle;
+  pvStep[scope] = step;
+
+  const picks = {};
+  const chip = (k, now) => '<span class="pv-chip' + (now ? ' now' : '') + '">' + esc(k.label || k.id) + '</span>';
+  const turns = pools.map(p => {
+    const label = (pools.length > 1 || p.name !== DEFAULT_POOL) ? '<span class="pv-pool">' + esc(p.name) + '</span>' : '';
+    if (!p.keys.length) return '<div class="pv-turns">' + label + '<span class="pv-bad">no usable keys in this pool</span></div>';
+    let chips;
+    if (random){
+      const id = scope + '|' + p.name;
+      const hist = pvRandom[id] || (pvRandom[id] = []);
+      while (hist.length <= step) hist.push(Math.floor(Math.random() * p.keys.length));
+      picks[p.name] = p.keys[hist[step] % p.keys.length];
+      const from = Math.max(0, step - 5);
+      chips = hist.slice(from, step + 1).map((ix, j) => chip(p.keys[ix % p.keys.length], from + j === step)).join('');
+    } else {
+      const order = turnOrder(m.strategy, p.keys);
+      const pos = step % order.length;
+      picks[p.name] = order[pos];
+      chips = order.map((k, j) => chip(k, j === pos)).join('') + '<span class="pv-again" title="Then it starts again">↺</span>';
+    }
+    return '<div class="pv-turns">' + label + chips + '</div>';
+  }).join('');
+
   const held = heldGroups(m.rules);
   const sent = [], heldRules = [];
   for (const r of m.rules){
@@ -824,32 +1159,32 @@ function previewHTML(scope, m){
     const g = groupOf(r);
     (g && held.has(g) ? heldRules : sent).push(r);
   }
-  const value = r => (r.prefix || '') + (r.source === 'static' ? (r.value || '') : keyText) + (r.suffix || '');
+  const keyText = r => {
+    const k = picks[poolOf(r.pool)];
+    return k ? maskKey(k.value) : (anyKeys ? '‹no key›' : '‹your key›');
+  };
+  const value = r => (r.prefix || '') + (r.source === 'static' ? (r.value || '') : keyText(r)) + (r.suffix || '');
   const query = sent.filter(r => r.in === 'query').map(r => r.name + '=' + value(r));
   const headers = sent.filter(r => r.in !== 'query').map(r => r.name + ': ' + value(r));
   const base = String(m.baseUrl || 'https://api.example.com').replace(/\/+$/, '');
   const request = ['POST ' + base + '/…' + (query.length ? '?' + query.join('&') : '')].concat(headers).join('\n');
 
-  let order = '';
-  for (let s = Math.max(0, step - 2); pool.length && s <= step + 3; s++){
-    const k = previewPick(scope, m.strategy, pool, s);
-    order += '<span class="pv-chip' + (s === step ? ' now' : '') + '">' + (s + 1) + ' · ' + esc(k.label || k.id) + '</span>';
-  }
+  const position = random ? 'Random pick' : 'Request ' + (step + 1) + ' of ' + cycle;
+  const used = Object.values(picks);
   return '<div class="pv-head">' +
-      '<span class="pv-title">Preview</span><span class="faint small">a sample request · nothing is sent</span>' +
+      '<span class="pv-title">Preview</span><span class="faint small">nothing is sent</span>' +
       '<span class="grow"></span>' +
-      '<button type="button" class="ghost sm" data-act="pv-prev" data-scope="' + scope + '"' + (step ? '' : ' disabled') + '>◀ Prev</button>' +
-      '<span class="pv-step">Request ' + (step + 1) + '</span>' +
-      '<button type="button" class="ghost sm" data-act="pv-next" data-scope="' + scope + '">' + (m.strategy === 'random' ? 'Next pick ▶' : 'Next ▶') + '</button>' +
+      '<button type="button" class="ghost sm" data-act="pv-prev" data-scope="' + scope + '"' + (anyKeys && (!random || step) ? '' : ' disabled') + '>◀ Prev</button>' +
+      '<span class="pv-step">' + (anyKeys ? position : '') + '</span>' +
+      '<button type="button" class="ghost sm" data-act="pv-next" data-scope="' + scope + '"' + (anyKeys ? '' : ' disabled') + '>' + (random ? 'New pick ▶' : 'Next ▶') + '</button>' +
     '</div>' +
-    '<div class="faint small">' + esc(STRATEGY_TEXT[m.strategy] || '') + '</div>' +
-    (pool.length
-      ? '<div class="pv-order">' + order + '</div>' +
-        '<div class="pv-key">Request ' + (step + 1) + ' uses <b>' + esc(key.label || key.id) + '</b> <span class="mono faint">' + esc(keyText) + '</span></div>'
-      : '<div class="pv-key faint">No usable keys yet. The sample shows where a key would go.</div>') +
+    '<p class="faint small pv-explain">' + esc(STRATEGY_TEXT[m.strategy] || '') + (pools.length > 1 ? ' Each pool takes turns on its own.' : '') + '</p>' +
+    (anyKeys
+      ? turns + '<div class="pv-key">This request uses ' + used.map(k => '<b>' + esc(k.label || k.id) + '</b> <span class="mono faint">' + esc(maskKey(k.value)) + '</span>').join(' and ') + '</div>'
+      : '<div class="pv-key faint">No keys yet. The sample shows where a key would go.</div>') +
     '<pre class="pv-req">' + esc(request) + '</pre>' +
-    (heldRules.length ? '<div class="pv-warn">Held back, group incomplete: ' + heldRules.map(r => esc(r.name)).join(', ') + '</div>' : '') +
-    (!sent.some(r => r.source !== 'static') ? '<div class="pv-bad">The key is not sent anywhere. Turn on at least one place.</div>' : '');
+    (heldRules.length ? '<div class="pv-warn">Not sent, group incomplete: ' + heldRules.map(r => esc(r.name)).join(', ') + '</div>' : '') +
+    (!sent.some(r => r.source !== 'static') ? '<div class="pv-bad">The key is not sent anywhere. Switch on at least one place.</div>' : '');
 }
 
 // renderFormPreview previews the form as it is now, including unsaved edits.
@@ -878,42 +1213,50 @@ function providerForm(p){
   const rules = p.inject || [];
   const keyRules = rules.filter(r => r.source !== 'static');
   const fixedRules = rules.filter(r => r.source === 'static');
-  const strat = [['round_robin','Round robin'],['random','Random'],['least_used','Least used']].map(([v, l]) =>
-    '<option value="' + v + '"' + (p.strategy === v ? ' selected' : '') + '>' + l + '</option>').join('');
+  const pools = poolNames(p.keys, rules);
+  const strat = Object.keys(STRATEGY_NAME).map(v =>
+    '<option value="' + v + '"' + (p.strategy === v ? ' selected' : '') + '>' + STRATEGY_NAME[v] + '</option>').join('');
   const rateVal = v => (v === null || v === undefined) ? '' : v;
   const firstKey = keyRules.length ? keyRules : [{ in:'header', name:'Authorization', prefix:'Bearer ' }];
   const quickAdd = KEY_PRESETS.map(pr =>
     '<button type="button" class="ghost sm" data-act="add-key-rule" data-preset="' + pr.id + '">' + esc(pr.label) + '</button>').join('');
-  return '<div class="grid3">' +
+  return '<p class="faint small form-intro">New here? The <a href="#guide">Guide</a> explains every setting in detail.</p>' +
+    '<div class="grid3">' +
       '<div><label class="lbl">Name</label><input data-f="name" value="' + esc(p.name) + '" placeholder="OpenAI main"></div>' +
       '<div><label class="lbl">Base URL</label><input data-f="baseUrl" value="' + esc(p.baseUrl) + '" placeholder="https://api.openai.com/v1" spellcheck="false"></div>' +
-      '<div><label class="lbl">Rotation</label><select data-f="strategy">' + strat + '</select></div>' +
+      '<div><label class="lbl">Rotation ' + help(HELP.rotation, true) + '</label><select data-f="strategy">' + strat + '</select></div>' +
     '</div>' +
     '<div class="grid3" style="margin-top:14px">' +
-      '<div><label class="lbl">Health check path</label><input data-f="healthPath" value="' + esc(p.healthPath) + '" placeholder="/models" spellcheck="false"></div>' +
-      '<div><label class="lbl">Rate limit (req/s)</label>' +
-        '<input data-f="rateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.rateLimitRPS) + '" placeholder="inherit global"></div>' +
-      '<div><label class="lbl">Per-key rate (req/s)</label>' +
-        '<input data-f="keyRateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.keyRateLimitRPS) + '" placeholder="inherit global"></div>' +
+      '<div><label class="lbl">Health check path ' + help(HELP.health) + '</label><input data-f="healthPath" value="' + esc(p.healthPath) + '" placeholder="/models" spellcheck="false"></div>' +
+      '<div><label class="lbl">Rate limit, req/s ' + help(HELP.rate) + '</label>' +
+        '<input data-f="rateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.rateLimitRPS) + '" placeholder="same as Settings"></div>' +
+      '<div><label class="lbl">Per-key rate, req/s ' + help(HELP.keyRate, true) + '</label>' +
+        '<input data-f="keyRateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.keyRateLimitRPS) + '" placeholder="same as Settings"></div>' +
     '</div>' +
-    '<div class="grid2" style="margin-top:14px">' +
-      '<div><label class="lbl">Proxy token</label>' +
-        '<input data-f="proxyToken" class="mono" value="' + esc(p.proxyToken || '') + '" placeholder="blank = use the global token" spellcheck="false"></div>' +
-      '<div></div>' +
+    '<div class="grid3" style="margin-top:14px">' +
+      '<div><label class="lbl">Proxy token ' + help(HELP.proxyToken) + '</label>' +
+        '<input data-f="proxyToken" class="mono" value="' + esc(p.proxyToken || '') + '" placeholder="same as Settings" spellcheck="false"></div>' +
     '</div>' +
-    '<div class="sep"></div>' +
-    '<div class="section-head2">Where your API key is sent</div>' +
-    '<p class="faint small" style="margin:2px 0 10px">Most APIs need one place. The key is sent to every place listed here.</p>' +
-    '<div data-keyrules>' + firstKey.map(keyRuleHTML).join('') + '</div>' +
+
+    '<h3 class="form-section">Where your API key is sent</h3>' +
+    '<p class="faint small">Most APIs need one place. Every place gets a key on every request.</p>' +
+    '<div class="fieldgrid" data-keyrules data-pools="' + esc(JSON.stringify(pools)) + '">' +
+      '<div class="fg-head"><span></span><span>Where ' + help(HELP.where) + '</span><span>Name</span><span>Prefix ' + help(HELP.prefix) + '</span>' +
+        '<span>Key pool ' + help(HELP.pool, true) + '</span><span>Group ' + help(HELP.group, true) + '</span><span></span></div>' +
+      firstKey.map(r => keyRuleHTML(r, pools)).join('') +
+    '</div>' +
     '<div class="quick-add"><span class="faint small">Add a place:</span>' + quickAdd +
       '<button type="button" class="ghost sm" data-act="add-key-rule" data-preset="">Custom</button></div>' +
-    '<div class="sep"></div>' +
-    '<div class="section-head2">Fixed values <span class="faint small">optional</span></div>' +
-    '<p class="faint small" style="margin:2px 0 10px">Sent unchanged on every request, for example an API version header.</p>' +
-    '<div data-fixedrules>' + fixedRules.map(fixedRuleHTML).join('') + '</div>' +
+
+    '<h3 class="form-section">Fixed values <span class="faint small">optional</span></h3>' +
+    '<p class="faint small">Sent unchanged on every request, for example an API version header.</p>' +
+    '<div class="fieldgrid" data-fixedrules>' +
+      '<div class="fg-head"><span></span><span class="span-name">Header name</span><span class="span-value">Value</span>' +
+        '<span>Group ' + help(HELP.group, true) + '</span><span></span></div>' +
+      fixedRules.map(fixedRuleHTML).join('') +
+    '</div>' +
     '<div class="quick-add"><button type="button" class="ghost sm" data-act="add-fixed-rule">+ Add fixed value</button></div>' +
-    '<p class="hint"><b>Groups.</b> Rows with no group are sent on their own. Rows with the same group name are sent together: ' +
-    'if one of them is off or has no name, none of the group is sent.</p>' +
+
     '<div class="preview" data-preview></div>';
 }
 
@@ -923,7 +1266,7 @@ function providerForm(p){
 function readForm(root){
   const out = {};
   root.querySelectorAll('[data-f]').forEach(el => { out[el.dataset.f] = el.value.trim(); });
-  // Blank rate limits mean "inherit the global value", so drop them entirely.
+  // Blank rate limits mean "use the value from Settings", so drop them entirely.
   ['rateLimitRPS', 'keyRateLimitRPS'].forEach(f => {
     if (!(f in out)) return;
     if (out[f] === '') delete out[f];
@@ -932,17 +1275,19 @@ function readForm(root){
   const rules = [];
   const badGroups = [];
   root.querySelectorAll('[data-keyrules] .rule, [data-fixedrules] .rule').forEach(row => {
-    const group = row.querySelector('[data-rf="group"]').value.trim();
+    const group = rowGroup(row).trim();
     const name = ruleName(row);
     if (!name && !group) return;
     if (!name) badGroups.push(group);
     const enabled = row.querySelector('[data-rf="enabled"]').checked;
     if (row.dataset.kind === 'key'){
+      const pool = row.querySelector('[data-rf="pool"]').value;
       rules.push({
         enabled, in: row.querySelector('[data-rf="in"]').value, name,
         source: 'key', value: '',
         prefix: row.querySelector('[data-rf="prefix"]').value,
         suffix: row.dataset.suffix || '', group,
+        pool: poolOf(pool) === DEFAULT_POOL ? '' : pool,
       });
     } else {
       rules.push({
@@ -953,7 +1298,7 @@ function readForm(root){
     }
   });
   if (badGroups.length){
-    out.groupError = 'Give the field in group "' + badGroups[0] + '" a name, or clear its group.';
+    out.groupError = 'Give the field in "' + badGroups[0] + '" a name, or set its group to None.';
   }
   out.inject = rules;
   return out;
@@ -1000,6 +1345,9 @@ function renderMain(){
   el.querySelectorAll('.panel').forEach(refreshForm);
   document.querySelectorAll('#main [data-act="key-value"]').forEach(inp => {
     inp.oninput = () => { keyDraft[inp.dataset.id] = inp.value; };
+  });
+  document.querySelectorAll('#main [data-act="key-pool"]').forEach(inp => {
+    inp.oninput = () => { keyPoolDraft[inp.dataset.id] = inp.value; };
   });
   document.querySelectorAll('#main [data-act="key-alias"]').forEach(inp => {
     inp.oninput = () => { keyAliasDraft[inp.dataset.id] = inp.value; };
@@ -1055,7 +1403,7 @@ function ruleChips(p){
   return on.map(r => {
     const val = (r.source === 'static')
       ? (r.value ? esc(r.value) : '<span class="faint">empty</span>')
-      : '<span class="k">‹key›</span>';
+      : '<span class="k">' + (poolOf(r.pool) === DEFAULT_POOL ? '‹key›' : '‹' + esc(poolOf(r.pool)) + ' key›') + '</span>';
     const g = groupOf(r);
     const isHeld = !!g && held.has(g);
     const title = r.in + ' ' + r.name + (g ? ' · group ' + r.group : '') +
@@ -1069,30 +1417,39 @@ function ruleChips(p){
   }).join('');
 }
 
+// keyTables lists a provider's keys, one table per key pool, default first.
+function keyTables(p){
+  const keys = p.keys || [];
+  if (!keys.length) return '<div class="empty compact">No keys yet. Paste one below to start.</div>';
+  return poolNames(keys, []).map(name => {
+    const ks = keys.filter(k => poolOf(k.pool) === poolOf(name));
+    if (!ks.length) return '';
+    return '<div class="pool-head"><span class="pool-name">' + esc(name) + '</span> pool' +
+        '<span class="faint"> · ' + ks.length + (ks.length === 1 ? ' key' : ' keys') + '</span></div>' +
+      '<div class="tbl-wrap"><table><thead><tr><th>Alias</th><th>Key</th><th>Status</th><th class="num">OK</th><th class="num">Errors</th><th>Last used</th><th></th></tr></thead>' +
+      '<tbody>' + ks.map(k => keyRow(p, k)).join('') + '</tbody></table></div>';
+  }).join('');
+}
+
 function providerCard(p){
   const editing = !!providerEdit[p.id];
   const token = p.proxyToken || S.proxyToken || '';
   const proxy = S.proxyBase + p.id + '/' + (token ? token + '/' : '');
   const provRPS = (p.rateLimitRPS === null || p.rateLimitRPS === undefined) ? S.rateLimitRPS : p.rateLimitRPS;
   const keyRPS = (p.keyRateLimitRPS === null || p.keyRateLimitRPS === undefined) ? S.keyRateLimitRPS : p.keyRateLimitRPS;
-  const keys = p.keys || [];
-  const rows = keys.map(k => keyRow(p, k)).join('');
-  const table = keys.length
-    ? '<div class="tbl-wrap"><table><thead><tr><th>Alias</th><th>Key</th><th>Status</th><th class="num">OK</th><th class="num">Errors</th><th>Last used</th><th></th></tr></thead>' +
-      '<tbody>' + rows + '</tbody></table></div>'
-    : '<div class="empty compact">No keys yet — paste one below to start rotating.</div>';
+  const pools = poolNames(p.keys, []);
 
   const editBlock = editing
     ? '<div class="panel">' + providerForm(p) +
-      '<div class="sep"></div>' +
-      '<div class="inline"><button class="primary sm" data-act="save-provider" data-id="' + p.id + '">Save changes</button>' +
+      '<div class="form-actions"><button class="primary sm" data-act="save-provider" data-id="' + p.id + '">Save changes</button>' +
       '<button class="ghost sm" data-act="cancel-provider" data-id="' + p.id + '">Cancel</button></div></div>'
     : '';
 
-  const draft = keyDraft[p.id] || '';
   const addKey = '<div class="keybar">' +
-      '<input data-act="key-value" data-id="' + p.id + '" placeholder="Paste an API key" value="' + esc(draft) + '" spellcheck="false" autocomplete="off" class="mono" aria-label="New API key">' +
+      '<input data-act="key-value" data-id="' + p.id + '" placeholder="Paste an API key" value="' + esc(keyDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" class="mono" aria-label="New API key">' +
       '<input data-act="key-alias" data-id="' + p.id + '" class="alias" placeholder="Alias (optional)" value="' + esc(keyAliasDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" aria-label="Alias for the new key">' +
+      '<input data-act="key-pool" data-id="' + p.id + '" class="alias" list="pools-' + p.id + '" placeholder="Pool: default" value="' + esc(keyPoolDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" aria-label="Key pool for the new key">' +
+      '<datalist id="pools-' + p.id + '">' + pools.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' +
       '<button class="primary sm" data-act="add-key" data-id="' + p.id + '">Add key</button>' +
       '<button class="ghost sm" data-act="test-provider" data-id="' + p.id + '">Test all</button></div>';
 
@@ -1109,7 +1466,7 @@ function providerCard(p){
     '</div>' +
     '<div class="p-meta">' +
       '<span class="mono small muted">' + esc(p.baseUrl) + '</span>' +
-      '<span class="tag">' + esc(p.strategy) + '</span>' +
+      '<span class="tag">' + esc(STRATEGY_NAME[p.strategy] || p.strategy) + '</span>' +
       '<span class="tag">health ' + esc(p.healthPath) + '</span>' +
       (token ? '<span class="tag" title="Requests must carry the proxy token">secured</span>' : '') +
       (provRPS > 0 ? '<span class="tag" title="Provider-wide rate limit">' + rpsText(provRPS) + ' req/s</span>' : '') +
@@ -1120,7 +1477,7 @@ function providerCard(p){
     '<div class="proxy"><code>' + esc(proxy) + '</code>' +
       '<button class="ghost sm" data-act="copy" data-copy="' + esc(proxy) + '">Copy URL</button></div>' +
     (token ? '<div class="faint small" style="padding:8px 18px 0">Send the token in the path, an <span class="mono">X-Rotator-Token</span> or <span class="mono">Authorization: Bearer</span> header, or <span class="mono">?token=</span>.</div>' : '') +
-    editBlock + table + addKey +
+    editBlock + keyTables(p) + addKey +
     '</article>';
 }
 
@@ -1130,7 +1487,8 @@ function keyRow(p, k){
     const d = keyEdit[k.id];
     return '<tr data-kid="' + k.id + '">' +
       '<td colspan="7"><div class="inline" style="flex-wrap:wrap">' +
-        '<input data-kf="label" value="' + esc(d.label) + '" placeholder="label" style="max-width:180px" aria-label="Key label">' +
+        '<input data-kf="label" value="' + esc(d.label) + '" placeholder="alias" style="max-width:170px" aria-label="Alias">' +
+        '<input data-kf="pool" value="' + esc(d.pool) + '" placeholder="pool: default" style="max-width:150px" aria-label="Key pool">' +
         '<input data-kf="value" class="mono" value="' + esc(d.value) + '" placeholder="value" style="flex:1;min-width:220px" spellcheck="false" aria-label="Key value">' +
         '<button class="primary sm" data-act="save-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Save</button>' +
         '<button class="ghost sm" data-act="cancel-key" data-kid="' + k.id + '">Cancel</button>' +
@@ -1179,8 +1537,17 @@ function updateLogs(){
 // ---------- events ----------
 
 document.addEventListener('change', (ev) => {
-  const panel = ev.target.closest && ev.target.closest('.panel');
-  if (panel) refreshForm(panel);
+  const el = ev.target;
+  const panel = el.closest && el.closest('.panel');
+  if (!panel) return;
+  if (el.matches('[data-rf="group"]') && el.value === '__new'){
+    const names = [...panel.querySelectorAll('.rule')].filter(r => !r.contains(el)).map(rowGroup).filter(Boolean);
+    const name = nextGroupName(names);
+    el.insertAdjacentHTML('beforeend', '<option value="' + esc(name) + '">' + esc(name) + '</option>');
+    el.value = name;
+    el.dataset.options = 'stale';
+  }
+  refreshForm(panel);
 });
 document.addEventListener('input', (ev) => {
   const panel = ev.target.closest && ev.target.closest('.panel');
@@ -1203,7 +1570,8 @@ document.addEventListener('click', async (ev) => {
         const panel = btn.closest('.panel');
         const preset = KEY_PRESETS.find(x => x.id === btn.dataset.preset);
         const list = panel.querySelector('[data-keyrules]');
-        list.insertAdjacentHTML('beforeend', keyRuleHTML(preset ? { in: preset.in, name: preset.name, prefix: preset.prefix } : {}));
+        const pools = JSON.parse(list.dataset.pools || '["default"]');
+        list.insertAdjacentHTML('beforeend', keyRuleHTML(preset ? { in: preset.in, name: preset.name, prefix: preset.prefix } : {}, pools));
         refreshForm(panel);
         if (!preset) list.lastElementChild.querySelector('[data-rf="name"]').focus();
         break;
@@ -1219,7 +1587,8 @@ document.addEventListener('click', async (ev) => {
       case 'pv-next':
       case 'pv-prev': {
         const scope = btn.dataset.scope;
-        pvStep[scope] = Math.max(0, (pvStep[scope] || 0) + (a === 'pv-next' ? 1 : -1));
+        // previewHTML wraps the step for round robin and stops it at 0 for random.
+        pvStep[scope] = (pvStep[scope] || 0) + (a === 'pv-next' ? 1 : -1);
         const panel = btn.closest('.panel');
         if (panel) renderFormPreview(panel);
         else {
@@ -1278,7 +1647,9 @@ document.addEventListener('click', async (ev) => {
         const val = (keyDraft[pid] || '').trim();
         if (!val){ toast('Paste a key first', true); return; }
         const alias = (keyAliasDraft[pid] || '').trim();
-        await api('/api/providers/' + pid + '/keys', 'POST', { value: val, label: alias });
+        const pool = (keyPoolDraft[pid] || '').trim();
+        await api('/api/providers/' + pid + '/keys', 'POST', { value: val, label: alias, pool });
+        keyPoolDraft[pid] = '';
         keyDraft[pid] = ''; keyAliasDraft[pid] = '';
         toast(alias ? 'Key added as "' + alias + '"' : 'Key added', 'ok');
         await load(); renderMain(); break;
@@ -1301,7 +1672,7 @@ document.addEventListener('click', async (ev) => {
       }
       case 'edit-key': {
         const k = findKey(kid);
-        keyEdit[kid] = { label: k.label || '', value: k.value || '' };
+        keyEdit[kid] = { label: k.label || '', value: k.value || '', pool: k.pool || '' };
         renderMain();
         break;
       }
@@ -1311,7 +1682,7 @@ document.addEventListener('click', async (ev) => {
         const tr = btn.closest('tr');
         const label = tr.querySelector('[data-kf="label"]').value.trim();
         const value = tr.querySelector('[data-kf="value"]').value.trim();
-        const body = { label };
+        const body = { label, pool: tr.querySelector('[data-kf="pool"]').value.trim() };
         if (value) body.value = value;
         await api('/api/providers/' + pid + '/keys/' + kid, 'PUT', body);
         delete keyEdit[kid]; toast('Key saved', 'ok'); await load(); renderMain(); break;
@@ -1322,7 +1693,7 @@ document.addEventListener('click', async (ev) => {
 
 $('#btn-new').onclick = () => { newOpen = !newOpen; renderNew(); if (newOpen) $('#newprovider').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
-showPage(location.hash.slice(1));
+route();
 load();
 setInterval(load, 3000);   // patches live values only; never re-renders forms
 </script>

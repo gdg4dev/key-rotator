@@ -31,6 +31,7 @@ edited live in the dashboard (**Edit** → *Where your API key is sent* and *Fix
 | `prefix` | text written before the value (often `Bearer `) |
 | `suffix` | text written after the value |
 | `group` | optional. Fields that share a group name are sent together (see below) |
+| `pool` | optional, key places only. The key pool this place draws from; empty means `default` (see [Key pools](#key-pools)) |
 
 Every field independently chooses its source, so one provider can rotate its key into several
 places **and** send fixed headers at the same time. The written value is always
@@ -83,6 +84,24 @@ logs and CLI readable, and you can pin a request to a key by its alias.
 - Rename with the dashboard, `keyrotator alias OpenAI "key 2" billing`, the TUI's `n`, or
   `PUT /api/providers/{id}/keys/{kid}` with `{"label": "..."}`.
 - To send a request with a specific key, set the `X-Rotator-Key` header to its alias or id.
+
+## Key pools
+
+Every key belongs to a **pool**: `default`, unless you name another one when adding it
+(`keyrotator add-key OpenAI sk-... --pool partner`, or the *Pool* field in the dashboard). The
+provider card shows one key table per pool. Most providers only ever need the default pool.
+
+Each place a key is sent chooses the pool it draws from (the **Key pool** column in the editor, or
+`"pool"` on an `inject` rule). On every request, KeyRotator picks one key from each pool that an
+active place needs, and each pool takes turns on its own. That covers APIs that want two different
+credentials on every request, such as an account key in a header and a project key in the URL.
+
+When a request that used keys from several pools fails, the API does not say which key it rejected,
+so every key that request used is marked as failed. Pinning with `X-Rotator-Key` replaces the pick for
+that key's own pool only.
+
+Round robin uses each pool's keys in list order, starting with the first, and starts again after the
+last. The dashboard's preview steps through exactly that order.
 
 ## Proxy authentication
 
