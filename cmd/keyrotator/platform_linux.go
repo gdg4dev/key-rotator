@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -79,4 +80,8 @@ func desktopQuote(s string) string {
 	}
 	r := strings.NewReplacer(`"`, `\"`, "`", "\\`", "$", `\$`, `\`, `\\`)
 	return `"` + r.Replace(s) + `"`
+}
+
+func openBrowser(url string) {
+	_ = exec.Command("xdg-open", url).Start()
 }

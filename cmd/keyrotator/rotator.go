@@ -239,3 +239,20 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "..."
 }
+
+// keyState is a key's state in the words the dashboard, TUI and metrics all
+// use: ok, cooldown, invalid, error or disabled.
+func keyState(k *Key, now int64) string {
+	switch {
+	case !k.Enabled:
+		return "disabled"
+	case k.Status == statusCooldown && k.CooldownUntil > now:
+		return "cooldown"
+	case k.Status == statusInvalid:
+		return "invalid"
+	case k.Status == statusError:
+		return "error"
+	default:
+		return "ok"
+	}
+}

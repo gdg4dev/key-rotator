@@ -19,5 +19,5 @@ func handleServiceCommand(cmd string) bool {
 }
 
 func runAsService(_ *App) error {
-	return fmt.Errorf("Windows service mode is only supported on Windows")
+	return fmt.Errorf("the Windows service mode is only available on Windows")
 }

@@ -5,7 +5,9 @@ package main
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -64,4 +66,19 @@ func windowsQuote(s string) string {
 		return s
 	}
 	return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
+}
+
+func openBrowser(url string) {
+	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+}
+
+// detachAttr starts the child with no console attached and in its own process
+// group, so closing the terminal that started it does not stop it.
+func detachAttr() *syscall.SysProcAttr {
+	const detachedProcess = 0x00000008
+	const createNewProcessGroup = 0x00000200
+	return &syscall.SysProcAttr{
+		CreationFlags: detachedProcess | createNewProcessGroup,
+		HideWindow:    true,
+	}
 }

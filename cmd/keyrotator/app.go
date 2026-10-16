@@ -8,9 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -232,21 +230,6 @@ func (l *LogBuffer) List() []LogEntry {
 		out = append(out, l.items[i])
 	}
 	return out
-}
-
-// openBrowser opens url in the default browser. It is best effort: if no
-// opener is available the URL is still printed in the startup banner.
-func openBrowser(url string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	case "darwin":
-		cmd = exec.Command("open", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	_ = cmd.Start()
 }
 
 // sweeper re-tests cooled-down and invalid keys in the background.

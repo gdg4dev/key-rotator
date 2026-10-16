@@ -68,8 +68,8 @@ func (m *metrics) write(w io.Writer, cfg Config, version string, now int64) {
 	requests := cloneSeries(m.requests)
 	limited := cloneSeries(m.limited)
 	retries := cloneStr(m.retries)
-	latSum := cloneFloat(m.latSum)
-	latCount := cloneStr64(m.latCount)
+	latSum := cloneStr(m.latSum)
+	latCount := cloneStr(m.latCount)
 	m.mu.Unlock()
 
 	fmt.Fprintf(w, "# HELP keyrotator_info Build information.\n# TYPE keyrotator_info gauge\n")
@@ -108,22 +108,6 @@ func (m *metrics) write(w io.Writer, cfg Config, version string, now int64) {
 	for _, p := range sortedStr(latCount) {
 		fmt.Fprintf(w, "keyrotator_request_duration_seconds_sum{provider=%s} %g\n", quote(p), latSum[p])
 		fmt.Fprintf(w, "keyrotator_request_duration_seconds_count{provider=%s} %d\n", quote(p), latCount[p])
-	}
-}
-
-// keyState maps a key to the same vocabulary the dashboard uses.
-func keyState(k *Key, now int64) string {
-	switch {
-	case !k.Enabled:
-		return "disabled"
-	case k.Status == statusCooldown && k.CooldownUntil > now:
-		return "cooldown"
-	case k.Status == statusInvalid:
-		return "invalid"
-	case k.Status == statusError:
-		return "error"
-	default:
-		return "ok"
 	}
 }
 
@@ -177,9 +161,6 @@ func cloneStr[V any](m map[string]V) map[string]V {
 	}
 	return out
 }
-
-func cloneFloat(m map[string]float64) map[string]float64 { return cloneStr(m) }
-func cloneStr64(m map[string]uint64) map[string]uint64   { return cloneStr(m) }
 
 // handleMetrics serves the Prometheus scrape endpoint. It sits behind the admin
 // token when one is set, so the counters are not public on a shared network.

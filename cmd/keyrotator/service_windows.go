@@ -194,7 +194,7 @@ func sc(args ...string) error {
 		}
 		if strings.Contains(msg, "Access is denied") || strings.Contains(msg, "FAILED 5") ||
 			strings.Contains(msg, "OpenSCManager") {
-			return fmt.Errorf("%s\n\nThis needs an elevated (Administrator) terminal.", msg)
+			return fmt.Errorf("%s: this needs an elevated (Administrator) terminal", msg)
 		}
 		return fmt.Errorf("%s", msg)
 	}

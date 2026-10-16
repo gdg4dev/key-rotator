@@ -579,19 +579,17 @@ func keyLabel(k *Key) string {
 	return k.ID
 }
 
-// keyStatus mirrors the web dashboard's badges, as text plus colour.
+// keyStatus is keyState as text plus colour, matching the web dashboard.
 func keyStatus(k *Key, now int64) (string, lipgloss.Style) {
-	switch {
-	case !k.Enabled:
-		return "disabled", stMuted
-	case k.Status == statusCooldown && k.CooldownUntil > now:
+	switch s := keyState(k, now); s {
+	case "cooldown":
 		return fmt.Sprintf("cooling %ds", k.CooldownUntil-now), stWarn
-	case k.Status == statusInvalid, k.Status == statusError:
-		return k.Status, stBad
-	case k.Status == statusOK:
-		return "ok", stOK
+	case "invalid", "error":
+		return s, stBad
+	case "disabled":
+		return s, stMuted
 	default:
-		return k.Status, stMuted
+		return s, stOK
 	}
 }
 

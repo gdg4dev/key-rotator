@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -74,4 +75,8 @@ func launchAgentPlist(program []string) []byte {
 	b.WriteString("  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>\n")
 	b.WriteString("</dict></plist>\n")
 	return b.Bytes()
+}
+
+func openBrowser(url string) {
+	_ = exec.Command("open", url).Start()
 }
