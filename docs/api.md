@@ -16,8 +16,8 @@ The dashboard is a thin client over a small JSON API.
 | POST | `/api/providers` | create provider (also accepts `proxyToken`, `rateLimitRPS`, `keyRateLimitRPS`) |
 | PUT / DELETE | `/api/providers/{id}` | update / delete provider |
 | POST | `/api/providers/{id}/test` | health-probe every key |
-| POST | `/api/providers/{id}/keys` | add a key; optional `label` (alias, defaults to `key N`) and `pool` (defaults to `default`) |
-| PUT / DELETE | `/api/providers/{id}/keys/{kid}` | update (`value`, `label`, `pool`, `enabled`) / delete a key |
+| POST | `/api/providers/{id}/keys` | add a key; optional `label` (alias, defaults to `key N`) and `parts` (`{"session_id": "..."}`) |
+| PUT / DELETE | `/api/providers/{id}/keys/{kid}` | update (`value`, `label`, `parts`, `enabled`) / delete a key; `parts` replaces the whole set |
 | POST | `/api/providers/{id}/keys/{kid}/test` | probe one key |
 | POST | `/api/providers/{id}/keys/{kid}/reset` | clear cooldown/invalid status |
 

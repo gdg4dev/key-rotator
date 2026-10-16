@@ -28,7 +28,7 @@ and the admin token — in the same config file, so there is no extra setup:
 | `on <provider>` / `off <provider>` | enable / disable a provider |
 | `url <provider>` | print the authenticated proxy base URL |
 | `keys <provider>` | list keys |
-| `add-key <provider> <secret>` | add a key — `--label` sets its alias (default `key N`), `--pool` its key pool (default `default`) |
+| `add-key <provider> <secret>` | add a key — `--label` sets its alias (default `key N`), `--part name=value` adds a named part, and can be repeated |
 | `alias <provider> <key> <new-name>` | rename a key, by id or current alias |
 | `rm-key <provider> <key-id>` | delete a key |
 | `key-on` / `key-off <provider> <key-id>` | enable / disable a key |

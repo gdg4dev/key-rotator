@@ -7,7 +7,7 @@ KeyRotator, and KeyRotator adds the next healthy key from your pool. If a key ge
 rejected, it quietly retries with another one, and a small dashboard shows you what happened.
 
 <p align="center">
-  <img src="docs/images/providers.png" alt="The KeyRotator dashboard: a provider with keys in two pools, their health, and where each key is sent" width="900">
+  <img src="docs/images/providers.png" alt="The KeyRotator dashboard: a provider's keys, their health, and where each key is sent" width="900">
 </p>
 
 - **Spread the load.** Several keys share the traffic, so one key's rate limit doesn't stop you.
@@ -140,9 +140,10 @@ while you preview.
   terminal UI (`keyrotator tui`) that also works over SSH.
 - **Rate limits** per provider and per key, so you stay under each key's quota.
 - **A proxy token,** so only clients you give the URL to can use your keys.
-- **Key aliases, pools and pinning.** Name keys, put them in pools when an API needs two credentials,
-  and send `X-Rotator-Key: billing` to use one key on purpose.
-- **Groups of fields** that are only sent together. See [configuration](docs/configuration.md#fields-that-go-together-groups).
+- **Matched pairs.** For APIs that need two values together, such as a key and a session id, each key
+  can hold both, and every request sends a matching pair. See [configuration](docs/configuration.md#matched-pairs-keys-with-several-parts).
+- **Key aliases and pinning.** Name keys, and send `X-Rotator-Key: billing` to use one key on purpose.
+- **Groups of fixed values** that switch on and off together. See [configuration](docs/configuration.md#groups-of-fixed-values).
 - **Runs on its own:** start at login on Windows, macOS and Linux, as a Windows service, or in Docker.
 - **Prometheus metrics** at `/metrics`.
 

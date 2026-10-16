@@ -31,7 +31,7 @@ edited live in the dashboard (**Edit** → *Where your API key is sent* and *Fix
 | `prefix` | text written before the value (often `Bearer `) |
 | `suffix` | text written after the value |
 | `group` | optional. Fields that share a group name are sent together (see below) |
-| `pool` | optional, key places only. The key pool this place draws from; empty means `default` (see [Key pools](#key-pools)) |
+| `part` | optional, key places only. Which part of the key to send; empty means the key's main value (see [Matched pairs](#matched-pairs-keys-with-several-parts)) |
 
 Every field independently chooses its source, so one provider can rotate its key into several
 places **and** send fixed headers at the same time. The written value is always
@@ -47,27 +47,26 @@ trailing space.
 ]
 ```
 
-### Fields that go together (groups)
+### Groups of fixed values
 
-Fields with **no group** are independent: each one is sent whenever it is switched on, in any
-combination. Fields that share a **group name** are all-or-nothing: they are sent only when every
-member is switched on and has a name. If one member is off, the whole group is held back and none of
-it is sent. Group names are case-insensitive and ignore surrounding spaces, so `Beta` and ` beta `
-are the same group. A key place and a fixed value can share a group.
+Fixed values with **no group** are independent: each one is sent whenever it is switched on. Fixed
+values that share a **group name** are switched as one: they are sent only when every member is
+switched on and has a name, so turning one off holds back the whole group. That suits a set of headers
+you turn on and off together, such as beta-feature headers while you try something out. Group names are
+case-insensitive and ignore surrounding spaces.
 
 ```json
 "inject": [
-  { "enabled": true, "in": "header", "name": "x-api-key",   "source": "key",    "group": "tenant" },
-  { "enabled": true, "in": "header", "name": "x-tenant",    "source": "static", "value": "acme", "group": "tenant" },
-  { "enabled": true, "in": "header", "name": "x-trace-id",  "source": "static", "value": "debug" }
+  { "enabled": true,  "in": "header", "name": "anthropic-beta",    "source": "static", "value": "tools-2024", "group": "beta" },
+  { "enabled": false, "in": "header", "name": "x-beta-opt-in",     "source": "static", "value": "1",          "group": "beta" },
+  { "enabled": true,  "in": "header", "name": "anthropic-version", "source": "static", "value": "2023-06-01" }
 ]
 ```
 
-Here `x-api-key` and `x-tenant` are always sent together, and `x-trace-id` is sent on its own.
-Turning off `x-tenant` holds `x-api-key` too. In the dashboard, grouped rows share a coloured rail,
-and a held row is dashed and marked *held*. Groups apply to every request; they cannot yet depend on
-the request path or model, and one-way dependencies (A needs B, but B can be used alone) are not
-supported. Use a separate group for each bundle.
+Here `x-beta-opt-in` is off, so `anthropic-beta` is held back too, while `anthropic-version` is sent
+on its own. In the dashboard, grouped rows share a coloured rail and a held row says why it is not
+sent. Groups do not decide which values travel together on a request; for values that must match, use
+[matched pairs](#matched-pairs-keys-with-several-parts).
 
 Any client-supplied value for those headers/params is replaced. Older configs written with the
 single `authHeader`/`authPrefix` fields are migrated to an equivalent `inject` rule automatically
@@ -85,23 +84,36 @@ logs and CLI readable, and you can pin a request to a key by its alias.
   `PUT /api/providers/{id}/keys/{kid}` with `{"label": "..."}`.
 - To send a request with a specific key, set the `X-Rotator-Key` header to its alias or id.
 
-## Key pools
+## Matched pairs: keys with several parts
 
-Every key belongs to a **pool**: `default`, unless you name another one when adding it
-(`keyrotator add-key OpenAI sk-... --pool partner`, or the *Pool* field in the dashboard). The
-provider card shows one key table per pool. Most providers only ever need the default pool.
+Some APIs only accept values that belong together: an API key and the session id issued with it, an
+app id and its secret, an access key and its secret key. Sending one pair's key with another pair's
+session id fails. For these, a key can carry named **parts** next to its main value, and each key
+holds its own matched set:
 
-Each place a key is sent chooses the pool it draws from (the **Key pool** column in the editor, or
-`"pool"` on an `inject` rule). On every request, KeyRotator picks one key from each pool that an
-active place needs, and each pool takes turns on its own. That covers APIs that want two different
-credentials on every request, such as an account key in a header and a project key in the URL.
+```sh
+keyrotator add-key Example key-aaa --label acct-1 --part session_id=sess-111
+keyrotator add-key Example key-bbb --label acct-2 --part session_id=sess-222
+```
 
-When a request that used keys from several pools fails, the API does not say which key it rejected,
-so every key that request used is marked as failed. Pinning with `X-Rotator-Key` replaces the pick for
-that key's own pool only.
+Then give each value a place, and choose what each place sends (the **Sends** column in the editor,
+or `"part"` on an `inject` rule). Any mix of headers and URL parameters works:
 
-Round robin uses each pool's keys in list order, starting with the first, and starts again after the
-last. The dashboard's preview steps through exactly that order.
+```json
+"inject": [
+  { "enabled": true, "in": "query",  "name": "api_key",      "source": "key" },
+  { "enabled": true, "in": "header", "name": "x-session-id", "source": "key", "part": "session_id" }
+]
+```
+
+Rotation picks one whole key, so every request gets a matching set: acct-1's key with acct-1's
+session id, never acct-2's. That holds for every rotation mode. A key that lacks a part a place sends
+is skipped (the dashboard marks it *no session_id*), and when a request fails, only the key it used is
+marked. Once a place sends a part, the dashboard's add-key bar asks for that part, and the key table
+lists each key's parts, never their values.
+
+Round robin uses the keys in list order, starting with the first, and starts again after the last.
+The dashboard's preview steps through exactly that order.
 
 ## Proxy authentication
 

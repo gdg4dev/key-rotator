@@ -229,7 +229,7 @@ tr:last-child td { border-bottom: 0; }
 .form-actions { display: flex; gap: 8px; margin-top: 24px; }
 
 /* Both field lists use one column grid, so every column lines up:
-   on | where | name | prefix | key pool | group | remove */
+   on | where | name | prefix | sends (2 columns) | remove;  fixed values use group in column 6 */
 .fieldgrid { --cols: 22px 118px minmax(140px, 1fr) 140px 132px 132px 28px; }
 .fg-head, .rule { display: grid; grid-template-columns: var(--cols); column-gap: 8px; align-items: center; }
 .fg-head { padding: 0 0 6px 10px; font-size: 12px; color: var(--ink-3); }
@@ -275,9 +275,12 @@ tr:last-child td { border-bottom: 0; }
 .lbl .help { margin-left: 3px; vertical-align: -3px; }
 .provider { overflow: visible; }
 
-/* Key pools on the provider card: one table per pool. */
-.pool-head { padding: 12px 18px 4px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); }
-.pool-name { font-weight: 650; color: var(--ink); }
+.span-sends { grid-column: 5 / 7; }
+.tag-bad { border-color: var(--bad-soft); background: var(--bad-soft); color: var(--bad); }
+/* Editing a key: one labelled input per value, wrapping on narrow screens. */
+.key-edit { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.key-edit label { display: flex; flex-direction: column; flex: 0 1 170px; }
+.key-edit label.wide { flex: 1 1 220px; }
 
 /* Preview: a flat section; the sample request is the only box. */
 .preview { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -288,7 +291,6 @@ tr:last-child td { border-bottom: 0; }
 .pv-step { min-width: 104px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
 .pv-explain { margin: 4px 0 0; }
 .pv-turns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.pv-pool { min-width: 72px; font-size: 12px; font-weight: 650; color: var(--ink-2); }
 .pv-chip { padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--sunken); color: var(--ink-2); font-size: 12px; }
 .pv-chip.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .pv-again { color: var(--ink-3); font-size: 14px; }
@@ -441,10 +443,11 @@ tr:last-child td { border-bottom: 0; }
         <nav class="guide-toc" aria-label="Guide contents">
           <a href="#g-idea">The idea</a>
           <a href="#g-providers">Providers</a>
-          <a href="#g-keys">Keys, aliases and pools</a>
+          <a href="#g-keys">Keys and aliases</a>
           <a href="#g-rotation">Rotation modes</a>
           <a href="#g-failures">When a key fails</a>
           <a href="#g-places">Where the key goes</a>
+          <a href="#g-pairs">Matched pairs</a>
           <a href="#g-fixed">Fixed values</a>
           <a href="#g-groups">Groups</a>
           <a href="#g-limits">Rate limits</a>
@@ -476,18 +479,12 @@ tr:last-child td { border-bottom: 0; }
           </ul>
           <p>Switching a provider off makes its proxy URL answer <code>404</code> until you switch it back on.</p>
 
-          <h2 id="g-keys">Keys, aliases and pools</h2>
+          <h2 id="g-keys">Keys and aliases</h2>
           <p>Each key has an <b>alias</b>, a short name such as <code>billing</code>. A key added without one
             is called <code>key 1</code>, <code>key 2</code> and so on, using the lowest free number. Aliases are
             unique within a provider, ignoring upper and lower case.</p>
-          <p>Every key belongs to a <b>key pool</b>. Unless you choose otherwise, that is the <code>default</code>
-            pool, and most providers never need another one. The provider card shows one table per pool.</p>
-          <p>Pools matter when an API needs <b>two different credentials</b> on every request, for example an
-            account key in a header and a project key in the URL. Put the account keys in one pool and the project
-            keys in another, then set each place's <b>Key pool</b> column. Every request then gets one key from each
-            pool, and each pool takes turns on its own.</p>
-          <p class="guide-note">If a request that used keys from two pools fails, KeyRotator cannot tell which key
-            the API objected to, so both are treated as failed.</p>
+          <p>Most keys are a single value. Some APIs need a matched set of values instead, such as an API key and
+            the session id that goes with it. A key can hold those too: see <a href="#g-pairs">Matched pairs</a>.</p>
 
           <h2 id="g-rotation">Rotation modes</h2>
           <p>The rotation mode decides which key the next request uses. With three keys, <code>a</code>,
@@ -527,26 +524,46 @@ tr:last-child td { border-bottom: 0; }
           <ul>
             <li><b>Where</b>: a request header, or a parameter in the URL.</li>
             <li><b>Name</b>: the header or parameter name, such as <code>Authorization</code> or <code>api_key</code>.</li>
-            <li><b>Prefix</b>: text written just before the key. <code>Bearer </code> (with its space) is the most common.</li>
-            <li><b>Key pool</b>: which pool this place takes its key from.</li>
+            <li><b>Prefix</b>: text written just before the value. <code>Bearer </code> (with its space) is the most common.</li>
+            <li><b>Sends</b>: which value of the key goes here. For a normal key that is <code>key</code>.</li>
           </ul>
           <p>The line under each row shows exactly what it adds, for example
             <code>→ Authorization: Bearer ‹key›</code>. The <b>Add a place</b> buttons fill in the common ones.
-            Every place from the same pool gets the same key on a given request. If your code sends a value for one
-            of these headers or parameters itself, KeyRotator replaces it.</p>
+            Every place on a request uses the same key. If your code sends a value for one of these headers or
+            parameters itself, KeyRotator replaces it.</p>
+
+          <h2 id="g-pairs">Matched pairs</h2>
+          <p>Some APIs only accept values that belong together: an API key and the session id issued with it, an
+            app id and its secret, an access key and its secret key. Sending key 1 with key 2's session id fails.</p>
+          <p>For that, a key can have <b>parts</b> next to its main value. Each key holds its own matched set:</p>
+          <table class="guide-table">
+            <thead><tr><th>Alias</th><th>key</th><th>session_id</th></tr></thead>
+            <tbody>
+              <tr><td>acct-1</td><td class="mono">AAA…</td><td class="mono">111…</td></tr>
+              <tr><td>acct-2</td><td class="mono">BBB…</td><td class="mono">222…</td></tr>
+            </tbody>
+          </table>
+          <p>Then add one place per value. For example, <code>?api_key=</code> sending <b>key</b>, and a header
+            <code>x-session-id</code> sending <b>session_id</b> (pick <b>+ New part</b> in the Sends column to name
+            it). Any mix of headers and URL parameters works.</p>
+          <p>Rotation picks one whole key, so every request gets a matching set: acct-1's key with acct-1's session
+            id, never acct-2's. This holds for round robin, random and least used alike. Once a place sends a part,
+            the add-key bar asks for it, and the key table shows which parts each key has. A key without a part
+            that is needed is skipped, and marked <b>no session_id</b> in red, until you edit it. If a request
+            fails, only the key it used is marked.</p>
 
           <h2 id="g-fixed">Fixed values</h2>
           <p>Some APIs also want a header that never changes, such as <code>anthropic-version: 2023-06-01</code>.
             Add it under <b>Fixed values</b> and it is sent on every request.</p>
 
-          <h2 id="g-groups">Groups</h2>
-          <p>Fields with no group are independent: each one is sent whenever it is switched on, in any
-            combination. Fields in the same <b>group</b> are sent together or not at all. If one member is
-            switched off, or has no name, the whole group waits, and its rows say so.</p>
-          <p>Example: a tenant API wants <code>x-api-key</code> and <code>x-tenant: acme</code> only as a pair.
-            Put both in <b>Group 1</b>. Switching off <code>x-tenant</code> now also stops <code>x-api-key</code>
-            from being sent. Pick <b>+ New group</b> in the Group column to start a group, then choose the same
-            group on the other rows.</p>
+          <h2 id="g-groups">Groups of fixed values</h2>
+          <p>Fixed values with no group are independent: each one is sent whenever it is switched on. Fixed values
+            in the same <b>group</b> are switched as one: if any of them is off, none of them is sent, and their
+            rows say so. That is handy for a set of headers you turn on and off together, such as beta-feature
+            headers while you try something out.</p>
+          <p>Pick <b>+ New group</b> in the Group column to start a group, then choose the same group on the other
+            rows. Groups do not decide which values travel together on a request; for that, see
+            <a href="#g-pairs">Matched pairs</a>.</p>
 
           <h2 id="g-limits">Rate limits</h2>
           <p>Two limits, both in requests per second, keep you under an API's quota:</p>
@@ -628,7 +645,7 @@ const providerEdit = {};
 const previewOpen = {};
 const keyDraft = {};
 const keyAliasDraft = {};
-const keyPoolDraft = {};
+const keyPartsDraft = {};  // provider id -> part name -> value, for the add-key bar
 let newOpen = false;
 let logSig = '';
 let page = 'providers';
@@ -899,23 +916,23 @@ function renderSettings(){
 // ---------- provider form (fields + injection rules) ----------
 
 // ---------- request fields ----------
-// Two lists share one column grid, so every column lines up:
-//   key places:   on | where | name | prefix | key pool | group | remove
-//   fixed values: on | header name    | value          | group | remove
+// Two lists share one column grid, so the columns line up:
+//   key places:   on | where | name | prefix | sends          | remove
+//   fixed values: on | header name    | value  | group | remove
 // Each row shows the exact line it adds underneath. A preview below the lists
 // shows a whole sample request and steps through the key rotation.
 
 // Short explanations behind the "?" buttons.
 const HELP = {
-  rotation: 'Which key the next request uses. Round robin: each key in turn, then back to the first. Random: any usable key. Least used: the key that has waited longest. Each key pool takes turns on its own.',
+  rotation: 'Which key the next request uses. Round robin: each key in turn, then back to the first. Random: any usable key. Least used: the key that has waited longest.',
   health: 'A cheap GET path on the API, such as /models. KeyRotator calls it to test a key: when you press Test, and every 90 seconds for keys whose rest is over or that were rejected, so keys that work again come back on their own.',
   rate: 'The most requests per second this provider sends to the API, across all of its keys. Requests over the limit get a 429 straight away. Blank means: use the value from Settings. 0 means no limit.',
   keyRate: 'The most requests per second through any one key. A key at its limit is skipped and another key is used. Blank means: use the value from Settings. 0 means no limit.',
   proxyToken: 'A password for this provider\'s proxy URL. Clients must include it, so someone who only has the URL cannot use your keys. Blank means: use the token from Settings, if one is set.',
-  where: 'Where the key goes: a request header, or a parameter in the URL (?name=key).',
-  prefix: 'Text written just before the key. Many APIs want "Bearer " followed by the key; keep the space.',
-  pool: 'Which set of keys this place takes turns through. Every key is in the "default" pool unless you picked another pool when adding it.',
-  group: 'Fields in the same group are sent together: if any of them is switched off, none of them is sent. "None" means the field is sent on its own.',
+  where: 'Where the value goes: a request header, or a parameter in the URL (?name=value).',
+  prefix: 'Text written just before the value. Many APIs want "Bearer " followed by the key; keep the space.',
+  sends: 'Which value of the key this place sends. Most keys have one value, "key". If the API needs a matched pair, such as an API key and a session id, give each key a second part (for example session_id) and pick it here. Every request then sends both values from the same key.',
+  group: 'Fixed values in the same group are sent together: switching one off switches off the whole group. "None" means the value is sent on its own.',
 };
 
 function help(text, left){
@@ -937,21 +954,22 @@ const STRATEGY_TEXT = {
   least_used: 'Least used: the key that has waited longest goes next, so the keys end up taking turns.',
 };
 
-const DEFAULT_POOL = 'default';
-const GROUP_SLOTS = 5;  // colours for group rails; each group takes the next one
+const MAIN_PART = 'key';  // the name of a key's main value
+const GROUP_SLOTS = 5;    // colours for group rails; each group takes the next one
 
-// poolOf and groupOf give the comparable form of a name, as the server does.
-function poolOf(name){ return String(name || '').trim().toLowerCase() || DEFAULT_POOL; }
+// partOf gives the part a rule sends, as the server does: "" is the main value.
+function partOf(name){ const n = String(name || '').trim(); return n.toLowerCase() === MAIN_PART ? '' : n; }
 function groupOf(r){ return String(r.group || '').trim().toLowerCase(); }
 
-// poolNames lists the pools used by keys and rules: default first, then A-Z.
-function poolNames(keys, rules){
-  const seen = new Map([[DEFAULT_POOL, DEFAULT_POOL]]);
-  const add = n => { n = String(n || '').trim(); if (n && !seen.has(n.toLowerCase())) seen.set(n.toLowerCase(), n); };
-  (keys || []).forEach(k => add(k.pool));
-  (rules || []).forEach(r => { if (r.source !== 'static') add(r.pool); });
-  const rest = [...seen.entries()].filter(([k]) => k !== DEFAULT_POOL).sort((a, b) => a[0].localeCompare(b[0]));
-  return [DEFAULT_POOL].concat(rest.map(([, v]) => v));
+// keyPart reads one value of a key: "" is the main value.
+function keyPart(k, part){ return part ? ((k.parts || {})[part] || '') : (k.value || ''); }
+
+// partNames lists the part names in use by keys and key places, A-Z.
+function partNames(keys, rules){
+  const names = new Set();
+  (keys || []).forEach(k => Object.keys(k.parts || {}).forEach(n => names.add(n)));
+  (rules || []).forEach(r => { if (r.source !== 'static' && partOf(r.part)) names.add(partOf(r.part)); });
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 // heldGroups returns the groups held back because a member is off or unnamed.
@@ -965,24 +983,36 @@ function heldGroups(rules){
   return held;
 }
 
+// neededParts mirrors parts.go: the named parts that sent key places use.
+function neededParts(rules){
+  const held = heldGroups(rules);
+  const out = [];
+  for (const r of rules){
+    if (r.source === 'static' || !r.enabled || !String(r.name || '').trim()) continue;
+    const g = groupOf(r);
+    if (g && held.has(g)) continue;
+    const p = partOf(r.part);
+    if (p && !out.includes(p)) out.push(p);
+  }
+  return out;
+}
+
 const removeButton = '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove this field">×</button>';
 const onBox = r => '<input type="checkbox" data-rf="enabled" aria-label="Send this field"' + (r.enabled !== false ? ' checked' : '') + '>';
-// The group menu's options are filled in by refreshForm from the whole form.
+// The group and part menus are filled in by refreshForm from the whole form.
 const groupSelect = r => '<select data-rf="group" aria-label="Group" data-current="' + esc(r.group || '') + '"></select>';
 
-function keyRuleHTML(r, pools){
-  r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'', group:'', pool:'' }, r || {});
+function keyRuleHTML(r){
+  r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'', group:'', part:'' }, r || {});
   const locs = [['header','Header'],['query','URL query']].map(([v, l]) =>
     '<option value="' + v + '"' + (r.in === v ? ' selected' : '') + '>' + l + '</option>').join('');
-  const poolOpts = (pools && pools.length ? pools : [DEFAULT_POOL]).map(n =>
-    '<option value="' + esc(n) + '"' + (poolOf(n) === poolOf(r.pool) ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
-  return '<div class="rule" data-kind="key" data-suffix="' + esc(r.suffix) + '">' +
+  return '<div class="rule" data-kind="key" data-suffix="' + esc(r.suffix) + '" data-group="' + esc(r.group || '') + '">' +
     onBox(r) +
     '<select data-rf="in" aria-label="Where">' + locs + '</select>' +
     '<input data-rf="name" class="mono" placeholder="e.g. Authorization" value="' + esc(r.name) + '" aria-label="Name" spellcheck="false">' +
     '<input data-rf="prefix" class="mono" placeholder="none" value="' + esc(r.prefix) + '" aria-label="Prefix" spellcheck="false">' +
-    '<select data-rf="pool" aria-label="Key pool">' + poolOpts + '</select>' +
-    groupSelect(r) + removeButton +
+    '<select data-rf="part" class="span-sends" aria-label="Sends" data-current="' + esc(partOf(r.part)) + '"></select>' +
+    removeButton +
     '<div class="rule-example mono" data-example></div>' +
   '</div>';
 }
@@ -1000,10 +1030,19 @@ function fixedRuleHTML(r){
 
 function ruleName(row){ return row.querySelector('[data-rf="name"]').value.trim(); }
 
-// rowGroup is the group a row belongs to. Until refreshForm has filled the menu
-// in, the saved name is used; after that, the menu (where "" means None).
+// rowGroup is the group a row belongs to. Key places have no group menu; a
+// group they carry from an older config is kept as is. Until refreshForm has
+// filled a menu in, the saved name is used; after that, the menu ("" = None).
 function rowGroup(row){
   const sel = row.querySelector('[data-rf="group"]');
+  if (!sel) return row.dataset.group || '';
+  if (!sel.dataset.options) return sel.dataset.current || '';
+  return sel.value === '__new' ? '' : sel.value;
+}
+
+// rowPart is the part a key place sends ("" = the main value), same rules.
+function rowPart(row){
+  const sel = row.querySelector('[data-rf="part"]');
   if (!sel.dataset.options) return sel.dataset.current || '';
   return sel.value === '__new' ? '' : sel.value;
 }
@@ -1014,13 +1053,9 @@ function rowExample(row){
   if (!name) return 'Give it a name to see what is sent.';
   const isKey = row.dataset.kind === 'key';
   const where = isKey ? row.querySelector('[data-rf="in"]').value : (row.dataset.in || 'header');
-  let value;
-  if (isKey){
-    const pool = poolOf(row.querySelector('[data-rf="pool"]').value);
-    value = row.querySelector('[data-rf="prefix"]').value + (pool === DEFAULT_POOL ? '‹key›' : '‹' + pool + ' key›') + (row.dataset.suffix || '');
-  } else {
-    value = (row.dataset.prefix || '') + row.querySelector('[data-rf="value"]').value + (row.dataset.suffix || '');
-  }
+  const value = isKey
+    ? row.querySelector('[data-rf="prefix"]').value + '‹' + (rowPart(row) || MAIN_PART) + '›' + (row.dataset.suffix || '')
+    : (row.dataset.prefix || '') + row.querySelector('[data-rf="value"]').value + (row.dataset.suffix || '');
   return where === 'query' ? '→ …?' + name + '=' + value : '→ ' + name + ': ' + value;
 }
 
@@ -1030,41 +1065,54 @@ function nextGroupName(names){
   for (let n = 1; ; n++) if (!used.has('group ' + n)) return 'Group ' + n;
 }
 
-// refreshForm redraws everything derived from the rows: the group menus, group
-// rails and held state, each row's example line, and the preview.
+// fillMenu rebuilds a menu's options only when they change, and selects value.
+function fillMenu(sel, options, value){
+  if (sel.dataset.options !== options){ sel.innerHTML = options; sel.dataset.options = options; }
+  sel.value = value;
+  sel.dataset.current = sel.value;
+}
+
+// refreshForm redraws everything derived from the rows: the part and group
+// menus, group rails and held state, each row's example line, and the preview.
 function refreshForm(panel){
   if (!panel) return;
   const rows = [...panel.querySelectorAll('.rule')];
-  const groupOfRow = rowGroup;
+
+  // Part menus offer the parts the provider's keys have, plus any in use.
+  const keyList = panel.querySelector('[data-keyrules]');
+  const parts = new Set(JSON.parse((keyList && keyList.dataset.parts) || '[]'));
+  rows.forEach(row => { if (row.dataset.kind === 'key' && rowPart(row)) parts.add(rowPart(row)); });
+  const partOptions = '<option value="">key</option>' +
+    [...parts].sort((a, b) => a.localeCompare(b)).map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') +
+    '<option value="__new">+ New part</option>';
+
   // Group names in use, first spelling wins, in order of appearance.
   const names = [];
-  rows.forEach(row => { const g = groupOfRow(row).trim(); if (g && !names.some(n => n.toLowerCase() === g.toLowerCase())) names.push(g); });
+  rows.forEach(row => { const g = rowGroup(row).trim(); if (g && !names.some(n => n.toLowerCase() === g.toLowerCase())) names.push(g); });
+  const groupOptions = '<option value="">None</option>' +
+    names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') +
+    '<option value="__new">+ New group</option>';
 
   const info = rows.map(row => ({
-    row, label: groupOfRow(row).trim(), key: groupOfRow(row).trim().toLowerCase(),
+    row, label: rowGroup(row).trim(), key: rowGroup(row).trim().toLowerCase(),
     ok: row.querySelector('[data-rf="enabled"]').checked && ruleName(row) !== '',
   }));
   const held = new Set(info.filter(x => x.key && !x.ok).map(x => x.key));
 
   for (const x of info){
     const r = x.row;
-    const sel = r.querySelector('[data-rf="group"]');
-    const options = '<option value="">None</option>' +
-      names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') +
-      '<option value="__new">+ New group</option>';
-    if (sel.dataset.options !== options){ sel.innerHTML = options; sel.dataset.options = options; }
-    const match = names.find(n => n.toLowerCase() === x.key);
-    sel.value = match || '';
-    sel.dataset.current = sel.value;
+    const partSel = r.querySelector('[data-rf="part"]');
+    if (partSel) fillMenu(partSel, partOptions, rowPart(r));
+    const groupSel = r.querySelector('[data-rf="group"]');
+    if (groupSel) fillMenu(groupSel, groupOptions, names.find(n => n.toLowerCase() === x.key) || '');
 
     r.classList.toggle('grouped', !!x.key);
     if (x.key) r.dataset.slot = names.findIndex(n => n.toLowerCase() === x.key) % GROUP_SLOTS;
     else delete r.dataset.slot;
     const isHeld = !!x.key && held.has(x.key);
     r.classList.toggle('held', isHeld);
-    const ex = r.querySelector('[data-example]');
-    ex.textContent = isHeld
-      ? 'Not sent: a field in "' + x.label + '" is off or has no name, so the whole group waits.'
+    r.querySelector('[data-example]').textContent = isHeld
+      ? 'Not sent: a value in "' + x.label + '" is off or has no name, so the whole group waits.'
       : rowExample(r);
   }
   panel.querySelectorAll('[data-keyrules], [data-fixedrules]').forEach(list => {
@@ -1079,17 +1127,18 @@ function refreshForm(panel){
 // reads the keys it is given and never sends anything.
 
 const pvStep = {};    // preview scope -> request index within the cycle
-const pvRandom = {};  // preview scope + pool -> random picks made so far
+const pvRandom = {};  // preview scope -> random picks made so far
 
 function maskKey(v){
   v = String(v || '');
   return v.length > 10 ? v.slice(0, 4) + '…' + v.slice(-4) : '••••';
 }
 
-// usableKeys mirrors selection: ready keys first, resting keys only as a fallback.
-function usableKeys(keys){
+// usableKeys mirrors selection: keys with every needed part, ready keys first,
+// resting keys only as a fallback.
+function usableKeys(keys, needed){
   const now = Math.floor(Date.now() / 1000);
-  const usable = keys.filter(k => k.enabled && k.status !== 'invalid');
+  const usable = keys.filter(k => k.enabled && k.status !== 'invalid' && needed.every(n => keyPart(k, n)));
   const ready = usable.filter(k => !(k.status === 'cooldown' && k.cooldownUntil > now));
   return ready.length ? ready : usable;
 }
@@ -1101,56 +1150,33 @@ function turnOrder(strategy, keys){
   return keys;
 }
 
-// neededPools mirrors pool.go: the pools that sent key places draw from.
-function neededPools(rules){
-  const held = heldGroups(rules);
-  const out = [];
-  for (const r of rules){
-    if (r.source === 'static' || !r.enabled || !String(r.name || '').trim()) continue;
-    const g = groupOf(r);
-    if (g && held.has(g)) continue;
-    const p = poolOf(r.pool);
-    if (!out.includes(p)) out.push(p);
-  }
-  return out.length ? out : [DEFAULT_POOL];
-}
-
-const gcd = (a, b) => b ? gcd(b, a % b) : a;
-
 function previewHTML(scope, m){
   const random = m.strategy === 'random';
-  const pools = neededPools(m.rules).map(name => ({ name, keys: usableKeys((m.keys || []).filter(k => poolOf(k.pool) === name)) }));
-  const anyKeys = pools.some(p => p.keys.length);
+  const needed = neededParts(m.rules);
+  const all = (m.keys || []).filter(k => k.enabled && k.status !== 'invalid');
+  const missing = all.filter(k => !needed.every(n => keyPart(k, n)));
+  const keys = usableKeys(m.keys || [], needed);
 
-  // Round robin and least used repeat: the whole cycle is the least common
-  // multiple of the pool sizes. Random has no cycle, so it keeps a history.
-  let cycle = 1;
-  pools.forEach(p => { if (p.keys.length) cycle = Math.min(360, cycle / gcd(cycle, p.keys.length) * p.keys.length); });
+  // Round robin and least used repeat after one turn each; random has no
+  // cycle, so it keeps a history that Prev can walk back through.
+  const cycle = Math.max(1, keys.length);
   let step = pvStep[scope] || 0;
   step = random ? Math.max(0, step) : ((step % cycle) + cycle) % cycle;
   pvStep[scope] = step;
 
-  const picks = {};
+  let pick = null, chips = '';
   const chip = (k, now) => '<span class="pv-chip' + (now ? ' now' : '') + '">' + esc(k.label || k.id) + '</span>';
-  const turns = pools.map(p => {
-    const label = (pools.length > 1 || p.name !== DEFAULT_POOL) ? '<span class="pv-pool">' + esc(p.name) + '</span>' : '';
-    if (!p.keys.length) return '<div class="pv-turns">' + label + '<span class="pv-bad">no usable keys in this pool</span></div>';
-    let chips;
-    if (random){
-      const id = scope + '|' + p.name;
-      const hist = pvRandom[id] || (pvRandom[id] = []);
-      while (hist.length <= step) hist.push(Math.floor(Math.random() * p.keys.length));
-      picks[p.name] = p.keys[hist[step] % p.keys.length];
-      const from = Math.max(0, step - 5);
-      chips = hist.slice(from, step + 1).map((ix, j) => chip(p.keys[ix % p.keys.length], from + j === step)).join('');
-    } else {
-      const order = turnOrder(m.strategy, p.keys);
-      const pos = step % order.length;
-      picks[p.name] = order[pos];
-      chips = order.map((k, j) => chip(k, j === pos)).join('') + '<span class="pv-again" title="Then it starts again">↺</span>';
-    }
-    return '<div class="pv-turns">' + label + chips + '</div>';
-  }).join('');
+  if (keys.length && random){
+    const hist = pvRandom[scope] || (pvRandom[scope] = []);
+    while (hist.length <= step) hist.push(Math.floor(Math.random() * keys.length));
+    pick = keys[hist[step] % keys.length];
+    const from = Math.max(0, step - 5);
+    chips = hist.slice(from, step + 1).map((ix, j) => chip(keys[ix % keys.length], from + j === step)).join('');
+  } else if (keys.length){
+    const order = turnOrder(m.strategy, keys);
+    pick = order[step];
+    chips = order.map((k, j) => chip(k, j === step)).join('') + '<span class="pv-again" title="Then it starts again">↺</span>';
+  }
 
   const held = heldGroups(m.rules);
   const sent = [], heldRules = [];
@@ -1159,10 +1185,7 @@ function previewHTML(scope, m){
     const g = groupOf(r);
     (g && held.has(g) ? heldRules : sent).push(r);
   }
-  const keyText = r => {
-    const k = picks[poolOf(r.pool)];
-    return k ? maskKey(k.value) : (anyKeys ? '‹no key›' : '‹your key›');
-  };
+  const keyText = r => pick ? maskKey(keyPart(pick, partOf(r.part))) : '‹' + (partOf(r.part) || 'your key') + '›';
   const value = r => (r.prefix || '') + (r.source === 'static' ? (r.value || '') : keyText(r)) + (r.suffix || '');
   const query = sent.filter(r => r.in === 'query').map(r => r.name + '=' + value(r));
   const headers = sent.filter(r => r.in !== 'query').map(r => r.name + ': ' + value(r));
@@ -1170,19 +1193,21 @@ function previewHTML(scope, m){
   const request = ['POST ' + base + '/…' + (query.length ? '?' + query.join('&') : '')].concat(headers).join('\n');
 
   const position = random ? 'Random pick' : 'Request ' + (step + 1) + ' of ' + cycle;
-  const used = Object.values(picks);
+  const sentParts = needed.length ? ', sending its ' + ['key'].concat(needed).join(' and ') + ' together' : '';
   return '<div class="pv-head">' +
       '<span class="pv-title">Preview</span><span class="faint small">nothing is sent</span>' +
       '<span class="grow"></span>' +
-      '<button type="button" class="ghost sm" data-act="pv-prev" data-scope="' + scope + '"' + (anyKeys && (!random || step) ? '' : ' disabled') + '>◀ Prev</button>' +
-      '<span class="pv-step">' + (anyKeys ? position : '') + '</span>' +
-      '<button type="button" class="ghost sm" data-act="pv-next" data-scope="' + scope + '"' + (anyKeys ? '' : ' disabled') + '>' + (random ? 'New pick ▶' : 'Next ▶') + '</button>' +
+      '<button type="button" class="ghost sm" data-act="pv-prev" data-scope="' + scope + '"' + (pick && (!random || step) ? '' : ' disabled') + '>◀ Prev</button>' +
+      '<span class="pv-step">' + (pick ? position : '') + '</span>' +
+      '<button type="button" class="ghost sm" data-act="pv-next" data-scope="' + scope + '"' + (pick ? '' : ' disabled') + '>' + (random ? 'New pick ▶' : 'Next ▶') + '</button>' +
     '</div>' +
-    '<p class="faint small pv-explain">' + esc(STRATEGY_TEXT[m.strategy] || '') + (pools.length > 1 ? ' Each pool takes turns on its own.' : '') + '</p>' +
-    (anyKeys
-      ? turns + '<div class="pv-key">This request uses ' + used.map(k => '<b>' + esc(k.label || k.id) + '</b> <span class="mono faint">' + esc(maskKey(k.value)) + '</span>').join(' and ') + '</div>'
-      : '<div class="pv-key faint">No keys yet. The sample shows where a key would go.</div>') +
+    '<p class="faint small pv-explain">' + esc(STRATEGY_TEXT[m.strategy] || '') + '</p>' +
+    (pick
+      ? '<div class="pv-turns">' + chips + '</div>' +
+        '<div class="pv-key">This request uses <b>' + esc(pick.label || pick.id) + '</b>' + esc(sentParts) + '.</div>'
+      : '<div class="pv-key faint">' + (all.length ? 'No key has every part this request needs.' : 'No keys yet. The sample shows where a key would go.') + '</div>') +
     '<pre class="pv-req">' + esc(request) + '</pre>' +
+    (missing.length ? '<div class="pv-warn">Skipped, missing ' + esc(needed.join(' or ')) + ': ' + missing.map(k => esc(k.label || k.id)).join(', ') + '</div>' : '') +
     (heldRules.length ? '<div class="pv-warn">Not sent, group incomplete: ' + heldRules.map(r => esc(r.name)).join(', ') + '</div>' : '') +
     (!sent.some(r => r.source !== 'static') ? '<div class="pv-bad">The key is not sent anywhere. Switch on at least one place.</div>' : '');
 }
@@ -1213,7 +1238,6 @@ function providerForm(p){
   const rules = p.inject || [];
   const keyRules = rules.filter(r => r.source !== 'static');
   const fixedRules = rules.filter(r => r.source === 'static');
-  const pools = poolNames(p.keys, rules);
   const strat = Object.keys(STRATEGY_NAME).map(v =>
     '<option value="' + v + '"' + (p.strategy === v ? ' selected' : '') + '>' + STRATEGY_NAME[v] + '</option>').join('');
   const rateVal = v => (v === null || v === undefined) ? '' : v;
@@ -1235,15 +1259,15 @@ function providerForm(p){
     '</div>' +
     '<div class="grid3" style="margin-top:14px">' +
       '<div><label class="lbl">Proxy token ' + help(HELP.proxyToken) + '</label>' +
-        '<input data-f="proxyToken" class="mono" value="' + esc(p.proxyToken || '') + '" placeholder="same as Settings" spellcheck="false"></div>' +
+        '<input data-f="proxyToken" value="' + esc(p.proxyToken || '') + '" placeholder="same as Settings" spellcheck="false"></div>' +
     '</div>' +
 
     '<h3 class="form-section">Where your API key is sent</h3>' +
-    '<p class="faint small">Most APIs need one place. Every place gets a key on every request.</p>' +
-    '<div class="fieldgrid" data-keyrules data-pools="' + esc(JSON.stringify(pools)) + '">' +
+    '<p class="faint small">Most APIs need one place. If yours needs a matched pair, such as a key and a session id, add a place for each and pick the part it sends.</p>' +
+    '<div class="fieldgrid" data-keyrules data-parts="' + esc(JSON.stringify(partNames(p.keys, rules))) + '">' +
       '<div class="fg-head"><span></span><span>Where ' + help(HELP.where) + '</span><span>Name</span><span>Prefix ' + help(HELP.prefix) + '</span>' +
-        '<span>Key pool ' + help(HELP.pool, true) + '</span><span>Group ' + help(HELP.group, true) + '</span><span></span></div>' +
-      firstKey.map(r => keyRuleHTML(r, pools)).join('') +
+        '<span class="span-sends">Sends ' + help(HELP.sends, true) + '</span><span></span></div>' +
+      firstKey.map(keyRuleHTML).join('') +
     '</div>' +
     '<div class="quick-add"><span class="faint small">Add a place:</span>' + quickAdd +
       '<button type="button" class="ghost sm" data-act="add-key-rule" data-preset="">Custom</button></div>' +
@@ -1281,13 +1305,11 @@ function readForm(root){
     if (!name) badGroups.push(group);
     const enabled = row.querySelector('[data-rf="enabled"]').checked;
     if (row.dataset.kind === 'key'){
-      const pool = row.querySelector('[data-rf="pool"]').value;
       rules.push({
         enabled, in: row.querySelector('[data-rf="in"]').value, name,
-        source: 'key', value: '',
+        source: 'key', value: '', part: rowPart(row),
         prefix: row.querySelector('[data-rf="prefix"]').value,
         suffix: row.dataset.suffix || '', group,
-        pool: poolOf(pool) === DEFAULT_POOL ? '' : pool,
       });
     } else {
       rules.push({
@@ -1298,7 +1320,7 @@ function readForm(root){
     }
   });
   if (badGroups.length){
-    out.groupError = 'Give the field in "' + badGroups[0] + '" a name, or set its group to None.';
+    out.groupError = 'Give the value in "' + badGroups[0] + '" a name, or set its group to None.';
   }
   out.inject = rules;
   return out;
@@ -1346,8 +1368,12 @@ function renderMain(){
   document.querySelectorAll('#main [data-act="key-value"]').forEach(inp => {
     inp.oninput = () => { keyDraft[inp.dataset.id] = inp.value; };
   });
-  document.querySelectorAll('#main [data-act="key-pool"]').forEach(inp => {
-    inp.oninput = () => { keyPoolDraft[inp.dataset.id] = inp.value; };
+  document.querySelectorAll('#main [data-act="key-part"]').forEach(inp => {
+    inp.oninput = () => { (keyPartsDraft[inp.dataset.id] = keyPartsDraft[inp.dataset.id] || {})[inp.dataset.part] = inp.value; };
+  });
+  document.querySelectorAll('#main [data-kid] [data-kpart]').forEach(inp => {
+    const kid = inp.closest('[data-kid]').dataset.kid;
+    inp.oninput = () => { keyEdit[kid].parts[inp.dataset.kpart] = inp.value; };
   });
   document.querySelectorAll('#main [data-act="key-alias"]').forEach(inp => {
     inp.oninput = () => { keyAliasDraft[inp.dataset.id] = inp.value; };
@@ -1403,7 +1429,7 @@ function ruleChips(p){
   return on.map(r => {
     const val = (r.source === 'static')
       ? (r.value ? esc(r.value) : '<span class="faint">empty</span>')
-      : '<span class="k">' + (poolOf(r.pool) === DEFAULT_POOL ? '‹key›' : '‹' + esc(poolOf(r.pool)) + ' key›') + '</span>';
+      : '<span class="k">‹' + esc(partOf(r.part) || MAIN_PART) + '›</span>';
     const g = groupOf(r);
     const isHeld = !!g && held.has(g);
     const title = r.in + ' ' + r.name + (g ? ' · group ' + r.group : '') +
@@ -1417,18 +1443,72 @@ function ruleChips(p){
   }).join('');
 }
 
-// keyTables lists a provider's keys, one table per key pool, default first.
+// keyTables lists a provider's keys. A Parts column appears when the provider
+// uses key parts; it names each key's parts (never their values) and flags a
+// part that requests need but the key lacks.
 function keyTables(p){
   const keys = p.keys || [];
   if (!keys.length) return '<div class="empty compact">No keys yet. Paste one below to start.</div>';
-  return poolNames(keys, []).map(name => {
-    const ks = keys.filter(k => poolOf(k.pool) === poolOf(name));
-    if (!ks.length) return '';
-    return '<div class="pool-head"><span class="pool-name">' + esc(name) + '</span> pool' +
-        '<span class="faint"> · ' + ks.length + (ks.length === 1 ? ' key' : ' keys') + '</span></div>' +
-      '<div class="tbl-wrap"><table><thead><tr><th>Alias</th><th>Key</th><th>Status</th><th class="num">OK</th><th class="num">Errors</th><th>Last used</th><th></th></tr></thead>' +
-      '<tbody>' + ks.map(k => keyRow(p, k)).join('') + '</tbody></table></div>';
-  }).join('');
+  const showParts = partNames(keys, p.inject).length > 0;
+  return '<div class="tbl-wrap"><table><thead><tr><th>Alias</th><th>Key</th>' + (showParts ? '<th>Parts</th>' : '') +
+      '<th>Status</th><th class="num">OK</th><th class="num">Errors</th><th>Last used</th><th></th></tr></thead>' +
+    '<tbody>' + keys.map(k => keyRow(p, k, showParts)).join('') + '</tbody></table></div>';
+}
+
+function partsCell(p, k){
+  const have = Object.keys(k.parts || {}).sort().map(n => '<span class="tag">' + esc(n) + '</span>');
+  const lacking = neededParts(p.inject || []).filter(n => !keyPart(k, n)).map(n =>
+    '<span class="tag tag-bad" title="Requests send this part, so this key is skipped until it has one">no ' + esc(n) + '</span>');
+  const all = have.concat(lacking);
+  return all.length ? all.join(' ') : '<span class="faint">—</span>';
+}
+
+function keyRow(p, k, showParts){
+  const cols = showParts ? 8 : 7;
+  if (keyEdit[k.id]){
+    const d = keyEdit[k.id];
+    const names = [...new Set(partNames([], p.inject).concat(Object.keys(d.parts || {})))].sort();
+    return '<tr data-kid="' + k.id + '">' +
+      '<td colspan="' + cols + '"><div class="key-edit">' +
+        '<label><span class="lbl">Alias</span><input data-kf="label" value="' + esc(d.label) + '" placeholder="alias" aria-label="Alias"></label>' +
+        '<label class="wide"><span class="lbl">key</span><input data-kf="value" class="mono" value="' + esc(d.value) + '" spellcheck="false" aria-label="Key value"></label>' +
+        names.map(n => '<label class="wide"><span class="lbl">' + esc(n) + '</span><input data-kpart="' + esc(n) + '" class="mono" value="' +
+          esc((d.parts || {})[n] || '') + '" placeholder="no ' + esc(n) + '" spellcheck="false" aria-label="' + esc(n) + '"></label>').join('') +
+        '<div class="inline"><button class="primary sm" data-act="save-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Save</button>' +
+        '<button class="ghost sm" data-act="cancel-key" data-kid="' + k.id + '">Cancel</button></div>' +
+      '</div></td></tr>';
+  }
+  const shown = reveal[k.id] ? k.value : maskKey(k.value);
+  return '<tr data-kid="' + k.id + '">' +
+    '<td>' + esc(k.label || '—') + '</td>' +
+    '<td><span class="kval mono">' + esc(shown) + '</span> ' +
+      '<button class="ghost sm" data-act="reveal" data-kid="' + k.id + '">' + (reveal[k.id] ? 'hide' : 'show') + '</button></td>' +
+    (showParts ? '<td>' + partsCell(p, k) + '</td>' : '') +
+    '<td><span data-k="status">' + statusBadge(k) + '</span></td>' +
+    '<td class="num" data-k="ok">' + (k.success || 0) + '</td>' +
+    '<td class="num" data-k="err">' + (k.errors || 0) + '</td>' +
+    '<td class="muted" data-k="used">' + rel(k.lastUsed) + '</td>' +
+    '<td class="right">' +
+      '<button class="ghost" data-act="test-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Test</button>' +
+      '<button class="ghost" data-act="toggle-key" data-pid="' + p.id + '" data-kid="' + k.id + '">' + (k.enabled ? 'Disable' : 'Enable') + '</button>' +
+      '<button class="ghost" data-act="edit-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Edit</button>' +
+      '<button class="ghost" data-act="reset-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Clear cooldown and error state">Reset</button>' +
+      '<button class="icon" data-act="del-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Delete key" aria-label="Delete key">×</button>' +
+    '</td></tr>';
+}
+
+// addKeyBar asks for the key, an optional alias, and one input for each part
+// the provider's places send, so a new key is complete from the start.
+function addKeyBar(p){
+  const draft = keyPartsDraft[p.id] || {};
+  const parts = partNames([], p.inject);
+  return '<div class="keybar">' +
+      '<input data-act="key-value" data-id="' + p.id + '" placeholder="Paste an API key" value="' + esc(keyDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" class="mono" aria-label="New API key">' +
+      parts.map(n => '<input data-act="key-part" data-id="' + p.id + '" data-part="' + esc(n) + '" class="mono alias" placeholder="' + esc(n) + '" value="' +
+        esc(draft[n] || '') + '" spellcheck="false" autocomplete="off" aria-label="' + esc(n) + ' for the new key">').join('') +
+      '<input data-act="key-alias" data-id="' + p.id + '" class="alias" placeholder="Alias (optional)" value="' + esc(keyAliasDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" aria-label="Alias for the new key">' +
+      '<button class="primary sm" data-act="add-key" data-id="' + p.id + '">Add key</button>' +
+      '<button class="ghost sm" data-act="test-provider" data-id="' + p.id + '">Test all</button></div>';
 }
 
 function providerCard(p){
@@ -1437,7 +1517,6 @@ function providerCard(p){
   const proxy = S.proxyBase + p.id + '/' + (token ? token + '/' : '');
   const provRPS = (p.rateLimitRPS === null || p.rateLimitRPS === undefined) ? S.rateLimitRPS : p.rateLimitRPS;
   const keyRPS = (p.keyRateLimitRPS === null || p.keyRateLimitRPS === undefined) ? S.keyRateLimitRPS : p.keyRateLimitRPS;
-  const pools = poolNames(p.keys, []);
 
   const editBlock = editing
     ? '<div class="panel">' + providerForm(p) +
@@ -1445,13 +1524,7 @@ function providerCard(p){
       '<button class="ghost sm" data-act="cancel-provider" data-id="' + p.id + '">Cancel</button></div></div>'
     : '';
 
-  const addKey = '<div class="keybar">' +
-      '<input data-act="key-value" data-id="' + p.id + '" placeholder="Paste an API key" value="' + esc(keyDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" class="mono" aria-label="New API key">' +
-      '<input data-act="key-alias" data-id="' + p.id + '" class="alias" placeholder="Alias (optional)" value="' + esc(keyAliasDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" aria-label="Alias for the new key">' +
-      '<input data-act="key-pool" data-id="' + p.id + '" class="alias" list="pools-' + p.id + '" placeholder="Pool: default" value="' + esc(keyPoolDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" aria-label="Key pool for the new key">' +
-      '<datalist id="pools-' + p.id + '">' + pools.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' +
-      '<button class="primary sm" data-act="add-key" data-id="' + p.id + '">Add key</button>' +
-      '<button class="ghost sm" data-act="test-provider" data-id="' + p.id + '">Test all</button></div>';
+  const addKey = addKeyBar(p);
 
   return '<article class="surface provider" data-card="' + p.id + '">' +
     '<div class="p-head">' +
@@ -1481,36 +1554,6 @@ function providerCard(p){
     '</article>';
 }
 
-function keyRow(p, k){
-  const editing = !!keyEdit[k.id];
-  if (editing){
-    const d = keyEdit[k.id];
-    return '<tr data-kid="' + k.id + '">' +
-      '<td colspan="7"><div class="inline" style="flex-wrap:wrap">' +
-        '<input data-kf="label" value="' + esc(d.label) + '" placeholder="alias" style="max-width:170px" aria-label="Alias">' +
-        '<input data-kf="pool" value="' + esc(d.pool) + '" placeholder="pool: default" style="max-width:150px" aria-label="Key pool">' +
-        '<input data-kf="value" class="mono" value="' + esc(d.value) + '" placeholder="value" style="flex:1;min-width:220px" spellcheck="false" aria-label="Key value">' +
-        '<button class="primary sm" data-act="save-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Save</button>' +
-        '<button class="ghost sm" data-act="cancel-key" data-kid="' + k.id + '">Cancel</button>' +
-      '</div></td></tr>';
-  }
-  const shown = reveal[k.id] ? k.value : (k.value ? k.value.slice(0,4) + '…' + k.value.slice(-4) : '');
-  return '<tr data-kid="' + k.id + '">' +
-    '<td>' + esc(k.label || '—') + '</td>' +
-    '<td><span class="kval mono">' + esc(shown) + '</span> ' +
-      '<button class="ghost sm" data-act="reveal" data-kid="' + k.id + '">' + (reveal[k.id] ? 'hide' : 'show') + '</button></td>' +
-    '<td><span data-k="status">' + statusBadge(k) + '</span></td>' +
-    '<td class="num" data-k="ok">' + (k.success || 0) + '</td>' +
-    '<td class="num" data-k="err">' + (k.errors || 0) + '</td>' +
-    '<td class="muted" data-k="used">' + rel(k.lastUsed) + '</td>' +
-    '<td class="right">' +
-      '<button class="ghost" data-act="test-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Test</button>' +
-      '<button class="ghost" data-act="toggle-key" data-pid="' + p.id + '" data-kid="' + k.id + '">' + (k.enabled ? 'Disable' : 'Enable') + '</button>' +
-      '<button class="ghost" data-act="edit-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Edit</button>' +
-      '<button class="ghost" data-act="reset-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Clear cooldown and error state">Reset</button>' +
-      '<button class="icon" data-act="del-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Delete key" aria-label="Delete key">×</button>' +
-    '</td></tr>';
-}
 
 // ---------- activity log ----------
 
@@ -1540,6 +1583,16 @@ document.addEventListener('change', (ev) => {
   const el = ev.target;
   const panel = el.closest && el.closest('.panel');
   if (!panel) return;
+  if (el.matches('[data-rf="part"]') && el.value === '__new'){
+    const name = (window.prompt('Name the new part, for example session_id. Each key then gets its own value for it.') || '').trim();
+    if (name && name.toLowerCase() !== 'key'){
+      el.insertAdjacentHTML('beforeend', '<option value="' + esc(name) + '">' + esc(name) + '</option>');
+      el.value = name;
+    } else {
+      el.value = el.dataset.current || '';
+    }
+    el.dataset.options = 'stale';
+  }
   if (el.matches('[data-rf="group"]') && el.value === '__new'){
     const names = [...panel.querySelectorAll('.rule')].filter(r => !r.contains(el)).map(rowGroup).filter(Boolean);
     const name = nextGroupName(names);
@@ -1570,8 +1623,7 @@ document.addEventListener('click', async (ev) => {
         const panel = btn.closest('.panel');
         const preset = KEY_PRESETS.find(x => x.id === btn.dataset.preset);
         const list = panel.querySelector('[data-keyrules]');
-        const pools = JSON.parse(list.dataset.pools || '["default"]');
-        list.insertAdjacentHTML('beforeend', keyRuleHTML(preset ? { in: preset.in, name: preset.name, prefix: preset.prefix } : {}, pools));
+        list.insertAdjacentHTML('beforeend', keyRuleHTML(preset ? { in: preset.in, name: preset.name, prefix: preset.prefix } : {}));
         refreshForm(panel);
         if (!preset) list.lastElementChild.querySelector('[data-rf="name"]').focus();
         break;
@@ -1647,11 +1699,13 @@ document.addEventListener('click', async (ev) => {
         const val = (keyDraft[pid] || '').trim();
         if (!val){ toast('Paste a key first', true); return; }
         const alias = (keyAliasDraft[pid] || '').trim();
-        const pool = (keyPoolDraft[pid] || '').trim();
-        await api('/api/providers/' + pid + '/keys', 'POST', { value: val, label: alias, pool });
-        keyPoolDraft[pid] = '';
-        keyDraft[pid] = ''; keyAliasDraft[pid] = '';
-        toast(alias ? 'Key added as "' + alias + '"' : 'Key added', 'ok');
+        const parts = keyPartsDraft[pid] || {};
+        const p = S.providers.find(x => x.id === pid);
+        const lacking = neededParts((p && p.inject) || []).filter(n => !String(parts[n] || '').trim());
+        await api('/api/providers/' + pid + '/keys', 'POST', { value: val, label: alias, parts });
+        keyDraft[pid] = ''; keyAliasDraft[pid] = ''; keyPartsDraft[pid] = {};
+        toast(lacking.length ? 'Key added, but it has no ' + lacking.join(' or ') + ', so requests will skip it'
+          : (alias ? 'Key added as "' + alias + '"' : 'Key added'), lacking.length ? true : 'ok');
         await load(); renderMain(); break;
       }
       case 'del-key':
@@ -1672,7 +1726,7 @@ document.addEventListener('click', async (ev) => {
       }
       case 'edit-key': {
         const k = findKey(kid);
-        keyEdit[kid] = { label: k.label || '', value: k.value || '', pool: k.pool || '' };
+        keyEdit[kid] = { label: k.label || '', value: k.value || '', parts: Object.assign({}, k.parts || {}) };
         renderMain();
         break;
       }
@@ -1682,7 +1736,9 @@ document.addEventListener('click', async (ev) => {
         const tr = btn.closest('tr');
         const label = tr.querySelector('[data-kf="label"]').value.trim();
         const value = tr.querySelector('[data-kf="value"]').value.trim();
-        const body = { label, pool: tr.querySelector('[data-kf="pool"]').value.trim() };
+        const parts = {};
+        tr.querySelectorAll('[data-kpart]').forEach(inp => { parts[inp.dataset.kpart] = inp.value.trim(); });
+        const body = { label, parts };
         if (value) body.value = value;
         await api('/api/providers/' + pid + '/keys/' + kid, 'PUT', body);
         delete keyEdit[kid]; toast('Key saved', 'ok'); await load(); renderMain(); break;
