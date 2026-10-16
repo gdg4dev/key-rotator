@@ -18,6 +18,21 @@ Back to the [README](../README.md).
 macOS is exercised by the CI matrix. Start-at-login on macOS has not been run on real hardware yet, so
 please report any problems.
 
+## Your data: where it lives, moving it, backing it up
+
+Everything KeyRotator knows is in two files in the config folder above: `config.json` (providers,
+keys, settings) and `activity.json` (the Activity log). The dashboard footer shows the exact path.
+
+- **Per user, per computer.** The folder is inside your own user profile, so other people on the same
+  PC have their own, and nothing syncs between computers. A new PC starts empty. (On a work PC with
+  Windows roaming profiles, `%APPDATA%` may follow you between work machines.)
+- **Moving to another PC.** Stop KeyRotator, copy `config.json` into the same folder on the new PC,
+  and start it there.
+- **Another location.** Start with `-config <path>`, for example to keep separate setups side by side.
+- **Deleting is permanent.** Deleting a provider or key in the dashboard, CLI or TUI rewrites
+  `config.json` straight away, and there is no undo or automatic backup. Copy `config.json` somewhere
+  safe before big changes. It holds your keys in plain text, so keep the copy private.
+
 ## Use keyrotator from any terminal
 
 ```sh

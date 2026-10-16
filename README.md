@@ -162,7 +162,7 @@ while you preview.
 
 | Guide | What's inside |
 | --- | --- |
-| [Running it](docs/running.md) | Background mode, start at login, Windows service, systemd, Docker, command-line flags |
+| [Running it](docs/running.md) | Where your data lives and how to back it up, background mode, start at login, Windows service, systemd, Docker, command-line flags |
 | [From the terminal](docs/terminal.md) | Every CLI command, and the terminal UI's keys |
 | [Configuration](docs/configuration.md) | How keys are chosen, where they are sent, key groups, matched pairs, aliases, proxy token, rate limits, security |
 | [HTTP API and metrics](docs/api.md) | The JSON API behind the dashboard, response headers, Prometheus metrics |

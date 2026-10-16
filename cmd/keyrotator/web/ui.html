@@ -661,6 +661,10 @@ tr:last-child td { border-bottom: 0; }
           <ul>
             <li>Your settings, keys, their counts and the Activity log are saved, so they survive restarts and
               updates. The Activity log lives in <code>activity.json</code> next to the config.</li>
+            <li>The config belongs to your user on this computer: it is not shared with other users or synced
+              to other PCs (the path is in the footer). To move it, copy <code>config.json</code> to the same
+              folder on the other PC. Deleting a provider or key is permanent, so copy the file before big
+              changes.</li>
             <li><code>keyrotator start</code> runs it in the background, so it keeps going after you close the
               terminal. <code>keyrotator stop</code> and <code>keyrotator status</code> do what they say.</li>
             <li><b>Start at login</b> in Settings starts it whenever you sign in, on Windows, macOS and Linux.</li>
