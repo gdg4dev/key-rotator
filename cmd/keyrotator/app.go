@@ -49,7 +49,7 @@ func NewApp(configPath, listenOverride string) (*App, error) {
 		MaxIdleConnsPerHost:   32,
 		IdleConnTimeout:       90 * time.Second,
 	}
-	return &App{
+	app := &App{
 		store:   store,
 		logs:    &LogBuffer{max: 500},
 		quit:    make(chan struct{}),
@@ -65,7 +65,9 @@ func NewApp(configPath, listenOverride string) (*App, error) {
 			Timeout:       25 * time.Second,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
-	}, nil
+	}
+	app.loadActivity()
+	return app, nil
 }
 
 // Run serves until stop is closed, then shuts down gracefully.
@@ -108,9 +110,7 @@ func (a *App) Run(stop <-chan struct{}) error {
 			case <-stop:
 				return
 			case <-t.C:
-				if err := a.store.Save(); err != nil {
-					log.Printf("save config: %v", err)
-				}
+				a.persist("")
 			}
 		}
 	}()
@@ -129,9 +129,7 @@ func (a *App) Run(stop <-chan struct{}) error {
 		defer cancel()
 		_ = srv.Shutdown(ctx)
 		// Persist anything changed since the last periodic save.
-		if err := a.store.Save(); err != nil {
-			log.Printf("save config on shutdown: %v", err)
-		}
+		a.persist(" on shutdown")
 		return nil
 	}
 }

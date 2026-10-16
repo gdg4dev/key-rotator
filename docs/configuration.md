@@ -170,6 +170,8 @@ because the rotator throttled them.
   the service from refusing to boot on startup.
 - The proxy endpoint is open to anything that can reach the listen address unless you set a
   **proxy token** (see above). Set one before binding to `0.0.0.0`.
+- The Activity log is saved to `activity.json` next to the config (owner-only), so it survives restarts.
+  It records key aliases, paths and status codes, never key values.
 - At startup KeyRotator logs a **warning** if it listens beyond localhost with no proxy or admin token.
 - Config is saved on shutdown as well as periodically, so Ctrl+C does not lose recent changes.
 

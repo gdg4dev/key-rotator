@@ -95,7 +95,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--sunken); pad
 
 .main { padding: 28px 40px 64px; min-width: 0; max-width: 1200px; width: 100%; }
 .page-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
-.page-head h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.015em; }
+.page-head h1 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.015em; }
 .page-head .sub-title { color: var(--ink-2); font-size: 13px; margin-top: 1px; }
 .page-head .grow { flex: 1; }
 .live { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
@@ -184,11 +184,26 @@ label.lbl { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 
 
 /* ---------- providers ---------- */
 .provider { margin-bottom: 16px; overflow: hidden; }
-.p-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--line); }
-.p-name { font-size: 15px; font-weight: 650; }
+.p-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.p-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.p-name { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.p-facts { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+.p-facts .mono { font-size: 12px; color: var(--ink-2); }
+.dot-sep { margin: 0 6px; color: var(--line-strong); }
+.provider.off .p-title, .provider.off .p-section { opacity: .6; }
 .p-actions { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
-.p-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--line); }
-.fields { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.fields { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Card sections: a small uppercase label above the content. */
+.p-section { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.keys-section { padding-bottom: 4px; border-bottom: 0; }
+.sec-label { margin-bottom: 8px; font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.sec-hint, .sec-count { margin-left: 6px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.sec-note { margin-top: 6px; font-size: 12px; color: var(--ink-3); }
+.url-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.url-copy { min-width: 0; max-width: 100%; height: auto; padding: 6px 10px; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--sunken); color: var(--ink); font-size: 13px; font-weight: 500; cursor: copy; }
+.url-copy:hover { border-color: var(--accent); background: var(--accent-soft); }
+.ibtn.copied { color: var(--ok); }
 .rule-chip {
   display: inline-flex; gap: 6px; align-items: center;
   padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--sunken);
@@ -197,8 +212,28 @@ label.lbl { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 
 .rc-in, .rc-eq { color: var(--ink-3); }
 .rc-name { color: var(--ink); }
 .k { color: var(--accent); }
-.proxy { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--line); }
-.proxy code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; background: none; padding: 0; color: var(--ink-2); }
+/* Icon buttons: 30px targets, quiet until hovered; delete turns red. */
+.ibtn { width: 30px; height: 30px; padding: 0; border-color: transparent; background: transparent; color: var(--ink-3); flex: none; }
+.ibtn:hover { background: var(--sunken); color: var(--ink); }
+.ibtn.danger { color: var(--ink-3); }  /* red only on hover, so rows stay calm */
+.ibtn.danger:hover { background: var(--bad-soft); color: var(--bad); }
+.inline-ibtn { width: 26px; height: 26px; margin-left: 4px; vertical-align: middle; }
+/* On/off switch drawn as a button. */
+.switch-btn { position: relative; width: 34px; height: 20px; padding: 0; flex: none; border: 0; border-radius: 999px; background: var(--line-strong); }
+.switch-btn:hover { background: var(--line-strong); filter: brightness(1.1); }
+.switch-btn span { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.switch-btn[aria-checked="true"] { background: var(--accent); }
+.switch-btn[aria-checked="true"] span { transform: translateX(14px); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Key table */
+table.keys td { padding-top: 8px; padding-bottom: 8px; }
+table.keys .sw { width: 34px; padding-right: 0; }
+table.keys .alias { font-weight: 550; }
+table.keys tr.off td:not(.sw):not(.actions) { opacity: .5; }
+table.keys .req { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.req-err { color: var(--bad); }
+table.keys .actions { width: 1%; white-space: nowrap; text-align: right; }
+table.keys .actions .ibtn { display: inline-flex; }
 
 .tbl-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -209,8 +244,6 @@ th {
 td { padding: 10px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 tr:last-child td { border-bottom: 0; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
-.right { text-align: right; white-space: nowrap; }
-.right button { height: 28px; padding: 0 8px; font-size: 12.5px; }
 .kval { color: var(--ink-2); }
 
 .keybar { display: flex; gap: 8px; padding: 12px 18px; background: var(--sunken); border-top: 1px solid var(--line); }
@@ -506,8 +539,8 @@ tr:last-child td { border-bottom: 0; }
           <table class="guide-table">
             <thead><tr><th>The API answers</th><th>KeyRotator</th></tr></thead>
             <tbody>
-              <tr><td><code>429</code>, any <code>5xx</code>, or no answer</td><td>The key <b>rests</b> (shown as cooling) for the time the API asks for in <code>Retry-After</code>, or for the cooldown in Settings, 60 seconds by default. The request is retried with another key.</td></tr>
-              <tr><td><code>401</code> or <code>403</code></td><td>The key is marked <b>invalid</b> and set aside. The request is retried with another key.</td></tr>
+              <tr><td><code>429</code>, any <code>5xx</code>, or no answer</td><td>The key <b>rests</b> (shown as Resting) for the time the API asks for in <code>Retry-After</code>, or for the cooldown in Settings, 60 seconds by default. The request is retried with another key.</td></tr>
+              <tr><td><code>401</code> or <code>403</code></td><td>The key is marked <b>Rejected</b> and set aside. The request is retried with another key.</td></tr>
               <tr><td>anything else, including <code>400</code></td><td>The answer goes straight back to your code. The key stays healthy.</td></tr>
             </tbody>
           </table>
@@ -515,7 +548,7 @@ tr:last-child td { border-bottom: 0; }
             resting key is used anyway rather than failing outright.</p>
           <p>The <b>health check path</b> is a cheap <code>GET</code> path on the API, such as <code>/models</code>.
             KeyRotator calls it with a key to test it: when you press <b>Test</b>, and every 90 seconds for keys
-            whose rest is over and for keys marked invalid. A key that passes becomes healthy again on its own. <b>Reset</b> clears a
+            whose rest is over and for keys marked Rejected. A key that passes becomes healthy again on its own. <b>Reset</b> clears a
             key's state by hand.</p>
 
           <h2 id="g-places">Where the key goes</h2>
@@ -598,6 +631,8 @@ tr:last-child td { border-bottom: 0; }
 
           <h2 id="g-running">Keeping it running</h2>
           <ul>
+            <li>Your settings, keys, their counts and the Activity log are saved, so they survive restarts and
+              updates. The Activity log lives in <code>activity.json</code> next to the config.</li>
             <li><code>keyrotator start</code> runs it in the background, so it keeps going after you close the
               terminal. <code>keyrotator stop</code> and <code>keyrotator status</code> do what they say.</li>
             <li><b>Start at login</b> in Settings starts it whenever you sign in, on Windows, macOS and Linux.</li>
@@ -704,18 +739,19 @@ function rel(ts){
   if (d < 86400) return Math.floor(d/3600) + 'h ago';
   return Math.floor(d/86400) + 'd ago';
 }
+// statusBadge says what state a key is in, in plain words.
 function statusBadge(k){
-  if (!k.enabled) return '<span class="badge b-off">disabled</span>';
+  if (!k.enabled) return '<span class="badge b-off">Off</span>';
   const now = Math.floor(Date.now()/1000);
   if (k.status === 'cooldown'){
     const left = k.cooldownUntil - now;
-    return '<span class="badge b-cd">cooling ' + (left > 0 ? left + 's' : '…') + '</span>';
+    return '<span class="badge b-cd" title="Rate-limited or failing, so it is resting before it is used again">Resting' + (left > 0 ? ' ' + left + 's' : '') + '</span>';
   }
   switch (k.status){
-    case 'invalid': return '<span class="badge b-bad">invalid</span>';
-    case 'error':   return '<span class="badge b-bad">error</span>';
-    case 'ok':      return '<span class="badge b-ok">ok</span>';
-    default:        return '<span class="badge b-off">' + esc(k.status || 'unknown') + '</span>';
+    case 'invalid': return '<span class="badge b-bad" title="The API answered 401 or 403. A passing health check or Reset brings it back">Rejected</span>';
+    case 'error':   return '<span class="badge b-bad">Error</span>';
+    case 'ok':      return '<span class="badge b-ok">Healthy</span>';
+    default:        return '<span class="badge b-off">' + esc(k.status || 'Unknown') + '</span>';
   }
 }
 const focusedIn = (sel) => {
@@ -723,6 +759,18 @@ const focusedIn = (sel) => {
   const root = document.querySelector(sel);
   return !!(el && root && root.contains(el) && ['INPUT','TEXTAREA','SELECT'].includes(el.tagName));
 };
+
+// copyText uses the clipboard API, or a hidden textarea where that API is missing
+// (a dashboard opened over plain http from another machine).
+async function copyText(s){
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(s);
+  const ta = document.createElement('textarea');
+  ta.value = s; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  const ok = document.execCommand('copy');
+  ta.remove();
+  if (!ok) throw new Error('copy failed');
+}
 
 // ---------- routing ----------
 
@@ -799,7 +847,7 @@ function renderStats(){
     cell('', S.providers.length, 'providers') +
     cell('', keys, 'keys') +
     cell('ok', ok, 'healthy') +
-    cell('warn', cool, 'cooling') +
+    cell('warn', cool, 'resting') +
     cell('bad', bad, 'need attention');
 }
 
@@ -1406,17 +1454,19 @@ function patchCard(card, p){
   if (fields) fields.innerHTML = ruleChips(p);
   const pv = card.querySelector('[data-card-preview]');
   if (pv) pv.innerHTML = cardPreviewHTML(p);
-  const badge = card.querySelector('[data-p="badge"]');
-  if (badge){ badge.className = 'badge ' + (p.enabled ? 'b-ok' : 'b-off'); badge.textContent = p.enabled ? 'enabled' : 'disabled'; }
+  card.classList.toggle('off', !p.enabled);
   const tg = card.querySelector('[data-act="toggle-provider"]');
-  if (tg) tg.textContent = p.enabled ? 'Disable' : 'Enable';
+  if (tg) tg.setAttribute('aria-checked', p.enabled ? 'true' : 'false');
   for (const k of p.keys || []){
     const row = card.querySelector('tr[data-kid="' + k.id + '"]');
     if (!row) continue;
     const st = row.querySelector('[data-k="status"]');
     if (st) st.innerHTML = statusBadge(k);
-    setText(row, '[data-k="ok"]', String(k.success || 0));
-    setText(row, '[data-k="err"]', String(k.errors || 0));
+    const rq = row.querySelector('[data-k="req"]');
+    if (rq) rq.innerHTML = requestsHTML(k);
+    row.classList.toggle('off', !k.enabled);
+    const sw = row.querySelector('[data-act="toggle-key"]');
+    if (sw) sw.setAttribute('aria-checked', k.enabled ? 'true' : 'false');
     setText(row, '[data-k="used"]', rel(k.lastUsed));
   }
 }
@@ -1443,15 +1493,40 @@ function ruleChips(p){
   }).join('');
 }
 
-// keyTables lists a provider's keys. A Parts column appears when the provider
-// uses key parts; it names each key's parts (never their values) and flags a
-// part that requests need but the key lacks.
+// ---------- provider card ----------
+// Hierarchy, top to bottom: the name (16px) with an on/off switch, one muted
+// line of facts, then labelled sections (PROXY URL, SENDS, KEYS). Row actions
+// are icon buttons with tooltips instead of repeated words.
+
+// Inline icons (stroke = currentColor), so the binary has no extra assets.
+const ICON = {
+  link:  '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  test:  '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>',
+  edit:  '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>',
+  eye:   '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff:'<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+};
+const icon = name => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[name] + '</svg>';
+
+// iconBtn is a 30px button with a tooltip; its label is read by screen readers.
+function iconBtn(name, label, attrs, extra){
+  return '<button type="button" class="ibtn' + (extra ? ' ' + extra : '') + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" ' + attrs + '>' + icon(name) + '</button>';
+}
+
+// switchBtn is an on/off switch drawn as a button, so one click toggles it.
+function switchBtn(on, label, attrs){
+  return '<button type="button" class="switch-btn" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" ' + attrs + '><span></span></button>';
+}
+
 function keyTables(p){
   const keys = p.keys || [];
   if (!keys.length) return '<div class="empty compact">No keys yet. Paste one below to start.</div>';
   const showParts = partNames(keys, p.inject).length > 0;
-  return '<div class="tbl-wrap"><table><thead><tr><th>Alias</th><th>Key</th>' + (showParts ? '<th>Parts</th>' : '') +
-      '<th>Status</th><th class="num">OK</th><th class="num">Errors</th><th>Last used</th><th></th></tr></thead>' +
+  return '<div class="tbl-wrap"><table class="keys"><thead><tr><th class="sw"><span class="sr-only">On</span></th><th>Alias</th><th>Key</th>' +
+      (showParts ? '<th>Parts</th>' : '') + '<th>Status</th><th>Requests</th><th>Last used</th><th><span class="sr-only">Actions</span></th></tr></thead>' +
     '<tbody>' + keys.map(k => keyRow(p, k, showParts)).join('') + '</tbody></table></div>';
 }
 
@@ -1463,8 +1538,17 @@ function partsCell(p, k){
   return all.length ? all.join(' ') : '<span class="faint">—</span>';
 }
 
+// requestsHTML is the Requests cell: successful requests, plus failures in red
+// only when there are any, and "none yet" before any traffic.
+function requestsHTML(k){
+  const ok = k.success || 0, bad = k.errors || 0;
+  if (!ok && !bad) return '<span class="faint">none yet</span>';
+  if (!ok) return '<span class="req-err">' + bad + ' failed</span>';
+  return ok + (bad ? '<span class="req-err"> · ' + bad + ' failed</span>' : '');
+}
+
 function keyRow(p, k, showParts){
-  const cols = showParts ? 8 : 7;
+  const cols = showParts ? 9 : 8;
   if (keyEdit[k.id]){
     const d = keyEdit[k.id];
     const names = [...new Set(partNames([], p.inject).concat(Object.keys(d.parts || {})))].sort();
@@ -1478,22 +1562,22 @@ function keyRow(p, k, showParts){
         '<button class="ghost sm" data-act="cancel-key" data-kid="' + k.id + '">Cancel</button></div>' +
       '</div></td></tr>';
   }
+  const ids = 'data-pid="' + p.id + '" data-kid="' + k.id + '"';
   const shown = reveal[k.id] ? k.value : maskKey(k.value);
-  return '<tr data-kid="' + k.id + '">' +
-    '<td>' + esc(k.label || '—') + '</td>' +
-    '<td><span class="kval mono">' + esc(shown) + '</span> ' +
-      '<button class="ghost sm" data-act="reveal" data-kid="' + k.id + '">' + (reveal[k.id] ? 'hide' : 'show') + '</button></td>' +
+  return '<tr data-kid="' + k.id + '"' + (k.enabled ? '' : ' class="off"') + '>' +
+    '<td class="sw">' + switchBtn(k.enabled, k.enabled ? 'Key is on. Click to switch it off' : 'Key is off. Click to switch it on', 'data-act="toggle-key" ' + ids) + '</td>' +
+    '<td class="alias">' + esc(k.label || '—') + '</td>' +
+    '<td><span class="kval mono">' + esc(shown) + '</span>' +
+      iconBtn(reveal[k.id] ? 'eyeOff' : 'eye', reveal[k.id] ? 'Hide key' : 'Show key', 'data-act="reveal" data-kid="' + k.id + '"', 'inline-ibtn') + '</td>' +
     (showParts ? '<td>' + partsCell(p, k) + '</td>' : '') +
     '<td><span data-k="status">' + statusBadge(k) + '</span></td>' +
-    '<td class="num" data-k="ok">' + (k.success || 0) + '</td>' +
-    '<td class="num" data-k="err">' + (k.errors || 0) + '</td>' +
+    '<td class="req" data-k="req">' + requestsHTML(k) + '</td>' +
     '<td class="muted" data-k="used">' + rel(k.lastUsed) + '</td>' +
-    '<td class="right">' +
-      '<button class="ghost" data-act="test-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Test</button>' +
-      '<button class="ghost" data-act="toggle-key" data-pid="' + p.id + '" data-kid="' + k.id + '">' + (k.enabled ? 'Disable' : 'Enable') + '</button>' +
-      '<button class="ghost" data-act="edit-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Edit</button>' +
-      '<button class="ghost" data-act="reset-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Clear cooldown and error state">Reset</button>' +
-      '<button class="icon" data-act="del-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Delete key" aria-label="Delete key">×</button>' +
+    '<td class="actions">' +
+      iconBtn('test', 'Test this key now', 'data-act="test-key" ' + ids) +
+      iconBtn('edit', 'Edit alias, value and parts', 'data-act="edit-key" ' + ids) +
+      iconBtn('reset', 'Reset: clear its rest and error state', 'data-act="reset-key" ' + ids) +
+      iconBtn('trash', 'Delete this key', 'data-act="del-key" ' + ids, 'danger') +
     '</td></tr>';
 }
 
@@ -1517,6 +1601,17 @@ function providerCard(p){
   const proxy = S.proxyBase + p.id + '/' + (token ? token + '/' : '');
   const provRPS = (p.rateLimitRPS === null || p.rateLimitRPS === undefined) ? S.rateLimitRPS : p.rateLimitRPS;
   const keyRPS = (p.keyRateLimitRPS === null || p.keyRateLimitRPS === undefined) ? S.keyRateLimitRPS : p.keyRateLimitRPS;
+  const keys = p.keys || [];
+
+  // One muted line of facts replaces a row of chips.
+  const facts = [
+    '<span class="mono">' + esc(p.baseUrl) + '</span>',
+    esc(STRATEGY_NAME[p.strategy] || p.strategy),
+    'health ' + esc(p.healthPath || '/models'),
+  ];
+  if (provRPS > 0) facts.push(rpsText(provRPS) + ' req/s');
+  if (keyRPS > 0) facts.push(rpsText(keyRPS) + ' req/s per key');
+  if (token) facts.push('token required');
 
   const editBlock = editing
     ? '<div class="panel">' + providerForm(p) +
@@ -1524,35 +1619,42 @@ function providerCard(p){
       '<button class="ghost sm" data-act="cancel-provider" data-id="' + p.id + '">Cancel</button></div></div>'
     : '';
 
-  const addKey = addKeyBar(p);
-
-  return '<article class="surface provider" data-card="' + p.id + '">' +
-    '<div class="p-head">' +
-      '<span class="p-name">' + esc(p.name) + '</span>' +
-      '<span class="badge ' + (p.enabled ? 'b-ok' : 'b-off') + '" data-p="badge">' + (p.enabled ? 'enabled' : 'disabled') + '</span>' +
+  return '<article class="surface provider' + (p.enabled ? '' : ' off') + '" data-card="' + p.id + '">' +
+    '<header class="p-head">' +
+      switchBtn(p.enabled, p.enabled ? 'Provider is on. Click to switch it off' : 'Provider is off. Click to switch it on', 'data-act="toggle-provider" data-id="' + p.id + '"') +
+      '<div class="p-title"><span class="p-name">' + esc(p.name) + '</span>' +
+        '<span class="p-facts">' + facts.join('<span class="dot-sep">·</span>') + '</span></div>' +
       '<span class="p-actions">' +
-        '<button class="ghost sm" data-act="toggle-provider" data-id="' + p.id + '">' + (p.enabled ? 'Disable' : 'Enable') + '</button>' +
         '<button class="ghost sm" data-act="toggle-preview" data-id="' + p.id + '">' + (previewOpen[p.id] ? 'Hide preview' : 'Preview') + '</button>' +
         '<button class="ghost sm" data-act="edit-provider" data-id="' + p.id + '">' + (editing ? 'Close' : 'Edit') + '</button>' +
-        '<button class="ghost sm danger" data-act="del-provider" data-id="' + p.id + '" data-name="' + esc(p.name) + '">Delete</button>' +
+        iconBtn('trash', 'Delete provider', 'data-act="del-provider" data-id="' + p.id + '" data-name="' + esc(p.name) + '"', 'danger') +
       '</span>' +
-    '</div>' +
-    '<div class="p-meta">' +
-      '<span class="mono small muted">' + esc(p.baseUrl) + '</span>' +
-      '<span class="tag">' + esc(STRATEGY_NAME[p.strategy] || p.strategy) + '</span>' +
-      '<span class="tag">health ' + esc(p.healthPath) + '</span>' +
-      (token ? '<span class="tag" title="Requests must carry the proxy token">secured</span>' : '') +
-      (provRPS > 0 ? '<span class="tag" title="Provider-wide rate limit">' + rpsText(provRPS) + ' req/s</span>' : '') +
-      (keyRPS > 0 ? '<span class="tag" title="Per-key rate limit">' + rpsText(keyRPS) + ' req/s per key</span>' : '') +
-    '</div>' +
-    '<div class="fields">' + ruleChips(p) + '</div>' +
+    '</header>' +
+
+    '<section class="p-section">' +
+      '<div class="sec-label">Proxy URL <span class="sec-hint">use this in your code</span></div>' +
+      '<div class="url-row">' +
+        '<button type="button" class="url-copy mono" data-act="copy" data-copy="' + esc(proxy) + '" title="Click to copy">' + esc(proxy) + '</button>' +
+        iconBtn('link', 'Copy the proxy URL', 'data-act="copy" data-copy="' + esc(proxy) + '"', 'copy-icon') +
+      '</div>' +
+      (token ? '<div class="sec-note">The token is part of the URL. Clients can also send it as an <span class="mono">X-Rotator-Token</span> header or <span class="mono">?token=</span>.</div>' : '') +
+    '</section>' +
+
+    '<section class="p-section">' +
+      '<div class="sec-label">Sends</div>' +
+      '<div class="fields">' + ruleChips(p) + '</div>' +
+    '</section>' +
+
     (previewOpen[p.id] ? '<div class="preview card-preview" data-card-preview="' + p.id + '">' + cardPreviewHTML(p) + '</div>' : '') +
-    '<div class="proxy"><code>' + esc(proxy) + '</code>' +
-      '<button class="ghost sm" data-act="copy" data-copy="' + esc(proxy) + '">Copy URL</button></div>' +
-    (token ? '<div class="faint small" style="padding:8px 18px 0">Send the token in the path, an <span class="mono">X-Rotator-Token</span> or <span class="mono">Authorization: Bearer</span> header, or <span class="mono">?token=</span>.</div>' : '') +
-    editBlock + keyTables(p) + addKey +
+    editBlock +
+
+    '<section class="p-section keys-section">' +
+      '<div class="sec-label">Keys <span class="sec-count">' + keys.length + '</span></div>' +
+    '</section>' +
+    keyTables(p) + addKeyBar(p) +
     '</article>';
 }
+
 
 
 // ---------- activity log ----------
@@ -1663,7 +1765,15 @@ document.addEventListener('click', async (ev) => {
         break;
       }
       case 'copy':
-        try { await navigator.clipboard.writeText(btn.dataset.copy); toast('Copied to clipboard', 'ok'); }
+        try {
+          await copyText(btn.dataset.copy);
+          toast('Copied to clipboard', 'ok');
+          const ib = btn.closest('.url-row') && btn.closest('.url-row').querySelector('.copy-icon');
+          if (ib){
+            ib.innerHTML = icon('check'); ib.classList.add('copied');
+            setTimeout(() => { ib.innerHTML = icon('link'); ib.classList.remove('copied'); }, 1500);
+          }
+        }
         catch(e){ toast('Copy failed — select it manually', true); }
         break;
       case 'reveal':

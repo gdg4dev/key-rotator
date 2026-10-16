@@ -56,3 +56,25 @@ func TestShutdownStopsRun(t *testing.T) {
 		t.Fatal("Run did not return after Shutdown")
 	}
 }
+
+// The Activity page survives a restart: a new App on the same config reads
+// back the request log the previous one saved.
+func TestActivityLogSurvivesRestart(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "config.json")
+	first, err := NewApp(cfg, "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.logs.Add(LogEntry{Time: 1, Provider: "p", Key: "billing", Code: 200, OK: true})
+	first.logs.Add(LogEntry{Time: 2, Provider: "p", Key: "key 1", Code: 429})
+	first.persist("")
+
+	second, err := NewApp(cfg, "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := second.logs.List()
+	if len(got) != 2 || got[0].Key != "key 1" || got[1].Key != "billing" {
+		t.Fatalf("after restart the log is %+v, want both entries, newest first", got)
+	}
+}

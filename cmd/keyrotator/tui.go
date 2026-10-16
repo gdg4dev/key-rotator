@@ -579,17 +579,19 @@ func keyLabel(k *Key) string {
 	return k.ID
 }
 
-// keyStatus is keyState as text plus colour, matching the web dashboard.
+// keyStatus is keyState in the dashboard's words, plus a colour.
 func keyStatus(k *Key, now int64) (string, lipgloss.Style) {
 	switch s := keyState(k, now); s {
 	case "cooldown":
-		return fmt.Sprintf("cooling %ds", k.CooldownUntil-now), stWarn
-	case "invalid", "error":
-		return s, stBad
+		return fmt.Sprintf("resting %ds", k.CooldownUntil-now), stWarn
+	case "invalid":
+		return "rejected", stBad
+	case "error":
+		return "error", stBad
 	case "disabled":
-		return s, stMuted
+		return "off", stMuted
 	default:
-		return s, stOK
+		return "healthy", stOK
 	}
 }
 

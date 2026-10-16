@@ -55,7 +55,7 @@ func TestTUIRendersProvidersAndKeys(t *testing.T) {
 	m = press(m, "down") // select OpenAI, which has the keys
 
 	view := m.View()
-	for _, want := range []string{"KeyRotator", "Anthropic", "OpenAI", "team A", "team B", "ok", "cooling", "disabled", "RECENT REQUESTS"} {
+	for _, want := range []string{"KeyRotator", "Anthropic", "OpenAI", "team A", "team B", "healthy", "resting", "off", "RECENT REQUESTS"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("view is missing %q", want)
 		}
