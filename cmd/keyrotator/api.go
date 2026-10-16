@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -15,6 +16,7 @@ var uiHTML []byte
 
 func (a *App) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/", a.handleRoot)
+	mux.HandleFunc("/metrics", a.admin(a.handleMetrics))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
@@ -53,17 +55,19 @@ func (a *App) admin(next http.HandlerFunc) http.HandlerFunc {
 }
 
 type stateResp struct {
-	Version         string      `json:"version"`
-	Addr            string      `json:"addr"`
-	ProxyBase       string      `json:"proxyBase"`
-	ConfigPath      string      `json:"configPath"`
-	MaxRetries      int         `json:"maxRetries"`
-	CooldownSec     int         `json:"cooldownSec"`
-	AdminTokenSet   bool        `json:"adminTokenSet"`
-	ProxyToken      string      `json:"proxyToken"`
-	RateLimitRPS    float64     `json:"rateLimitRPS"`
-	KeyRateLimitRPS float64     `json:"keyRateLimitRPS"`
-	Providers       []*Provider `json:"providers"`
+	Version         string         `json:"version"`
+	Addr            string         `json:"addr"`
+	Listen          string         `json:"listen"`
+	ProxyBase       string         `json:"proxyBase"`
+	ConfigPath      string         `json:"configPath"`
+	MaxRetries      int            `json:"maxRetries"`
+	CooldownSec     int            `json:"cooldownSec"`
+	AdminTokenSet   bool           `json:"adminTokenSet"`
+	Autostart       autostartState `json:"autostart"`
+	ProxyToken      string         `json:"proxyToken"`
+	RateLimitRPS    float64        `json:"rateLimitRPS"`
+	KeyRateLimitRPS float64        `json:"keyRateLimitRPS"`
+	Providers       []*Provider    `json:"providers"`
 }
 
 func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +81,8 @@ func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"logs": a.logs.List()})
 	case len(seg) == 1 && seg[0] == "settings" && (r.Method == http.MethodPost || r.Method == http.MethodPut):
 		a.postSettings(w, r)
+	case len(seg) == 1 && seg[0] == "autostart" && r.Method == http.MethodPost:
+		a.postAutostart(w, r)
 	case len(seg) == 1 && seg[0] == "providers" && r.Method == http.MethodPost:
 		a.postProvider(w, r)
 	case len(seg) == 2 && seg[0] == "providers" && r.Method == http.MethodPut:
@@ -118,6 +124,8 @@ func (a *App) getState(w http.ResponseWriter) {
 		MaxRetries:      cfg.MaxRetries,
 		CooldownSec:     cfg.CooldownSec,
 		AdminTokenSet:   cfg.AdminToken != "",
+		Listen:          cfg.Listen,
+		Autostart:       currentAutostart(),
 		ProxyToken:      cfg.ProxyToken,
 		RateLimitRPS:    cfg.RateLimitRPS,
 		KeyRateLimitRPS: cfg.KeyRateLimitRPS,
@@ -126,6 +134,7 @@ func (a *App) getState(w http.ResponseWriter) {
 }
 
 type settingsReq struct {
+	Listen          *string  `json:"listen"`
 	AdminToken      *string  `json:"adminToken"`
 	MaxRetries      *int     `json:"maxRetries"`
 	CooldownSec     *int     `json:"cooldownSec"`
@@ -141,6 +150,14 @@ func (a *App) postSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s := a.store.Settings()
+	if req.Listen != nil {
+		addr := strings.TrimSpace(*req.Listen)
+		if _, _, err := net.SplitHostPort(addr); err != nil {
+			writeErr(w, http.StatusBadRequest, "listen must be host:port, e.g. 127.0.0.1:8787")
+			return
+		}
+		s.Listen = addr
+	}
 	if req.AdminToken != nil {
 		s.AdminToken = strings.TrimSpace(*req.AdminToken)
 	}
@@ -162,6 +179,27 @@ func (a *App) postSettings(w http.ResponseWriter, r *http.Request) {
 	a.store.UpdateSettings(s)
 	_ = a.store.Save()
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// postAutostart turns start-at-login on or off. The OS registration is the
+// source of truth, so the response reflects what is actually installed.
+func (a *App) postAutostart(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := decode(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if autostartMechanism == "" {
+		writeErr(w, http.StatusNotImplemented, "start at login is not supported on this platform")
+		return
+	}
+	if err := autostartApply(req.Enabled, autostartArgs(a.store.Path())); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, currentAutostart())
 }
 
 type providerReq struct {
@@ -281,22 +319,24 @@ func (a *App) postKey(w http.ResponseWriter, r *http.Request, pid string) {
 		writeErr(w, http.StatusNotFound, "provider not found")
 		return
 	}
+	alias, err := validateAlias(req.Label)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	k := &Key{
 		ID:      newID(),
-		Label:   strings.TrimSpace(req.Label),
 		Value:   strings.TrimSpace(req.Value),
 		Enabled: true,
 		Status:  statusOK,
 	}
-	if k.Label == "" {
-		k.Label = k.Masked()
-	}
 	if req.Enabled != nil {
 		k.Enabled = *req.Enabled
 	}
-	p.mu.Lock()
-	p.Keys = append(p.Keys, k)
-	p.mu.Unlock()
+	if err := p.addKey(k, alias); err != nil {
+		writeErr(w, http.StatusConflict, err.Error())
+		return
+	}
 	_ = a.store.Save()
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "key": k})
 }
@@ -307,10 +347,27 @@ func (a *App) putKey(w http.ResponseWriter, r *http.Request, pid, kid string) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !a.store.MutateKey(pid, kid, func(_ *Provider, k *Key) error {
-		if strings.TrimSpace(req.Label) != "" {
-			k.Label = strings.TrimSpace(req.Label)
+	// A blank alias keeps the current one; a new alias must be valid and unique.
+	if alias, err := validateAlias(req.Label); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	} else if alias != "" {
+		p := a.store.Provider(pid)
+		if p == nil {
+			writeErr(w, http.StatusNotFound, "provider not found")
+			return
 		}
+		found, err := p.renameKey(kid, alias)
+		if !found {
+			writeErr(w, http.StatusNotFound, "key not found")
+			return
+		}
+		if err != nil {
+			writeErr(w, http.StatusConflict, err.Error())
+			return
+		}
+	}
+	if !a.store.MutateKey(pid, kid, func(_ *Provider, k *Key) error {
 		if strings.TrimSpace(req.Value) != "" {
 			k.Value = strings.TrimSpace(req.Value)
 		}

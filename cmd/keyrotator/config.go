@@ -109,6 +109,7 @@ func normalizeRules(in []InjectRule) []InjectRule {
 }
 
 func (p *Provider) normalize() {
+	assignAliases(p.Keys)
 	if p.ID == "" {
 		p.ID = newID()
 	}
@@ -495,6 +496,10 @@ func (s *Store) UpdateSettings(u Settings) {
 	}
 	if u.CooldownSec >= 1 {
 		s.cfg.CooldownSec = u.CooldownSec
+	}
+	if u.Listen != "" {
+		// Takes effect the next time the server starts.
+		s.cfg.Listen = u.Listen
 	}
 	s.cfg.AdminToken = u.AdminToken
 	s.cfg.ProxyToken = u.ProxyToken

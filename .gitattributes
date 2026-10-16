@@ -3,3 +3,6 @@
 
 # Binaries are never text.
 *.exe binary
+
+# Images are binary.
+*.png binary

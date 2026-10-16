@@ -29,6 +29,7 @@ var hopHeaders = map[string]bool{
 // handleProxy serves /p/{providerID}/{...} and forwards to the upstream API,
 // injecting a rotating API key.
 func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
 	setCORS(w)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
@@ -73,6 +74,8 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	provRPS := effectiveProviderRPS(p, st.RateLimitRPS)
 	if allowed, waitTime := a.limits.take("p:"+pid, provRPS); !allowed {
 		retryAfter(w, waitTime)
+		a.metrics.rateLimited(pid, "provider")
+		a.metrics.request(pid, http.StatusTooManyRequests, time.Since(started))
 		a.logs.Add(LogEntry{
 			Time: time.Now().Unix(), Provider: pid, Method: r.Method,
 			Path: r.URL.Path, Code: http.StatusTooManyRequests, OK: false,
@@ -114,6 +117,8 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 		if key == nil {
 			if throttled {
 				retryAfter(w, p.shortestKeyWait(keyRPS, a.limits))
+				a.metrics.rateLimited(pid, "key")
+				a.metrics.request(pid, http.StatusTooManyRequests, time.Since(started))
 				a.logs.Add(LogEntry{
 					Time: time.Now().Unix(), Provider: pid, Method: r.Method,
 					Path: r.URL.Path, Code: http.StatusTooManyRequests, OK: false,
@@ -145,6 +150,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			p.markFail(key, 0, err.Error(), cooldown)
 			lastErr = err.Error()
+			a.metrics.retry(pid)
 			resp = nil
 			continue
 		}
@@ -157,6 +163,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 				resp.Body.Close()
 				p.markFail(key, code, snippet, wait)
 				lastErr = fmt.Sprintf("%d %s", code, snippet)
+				a.metrics.retry(pid)
 				resp = nil
 				continue
 			}
@@ -173,6 +180,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	elapsed := time.Since(start).Milliseconds()
 
 	if resp == nil {
+		a.metrics.request(pid, http.StatusBadGateway, time.Since(started))
 		a.logs.Add(LogEntry{
 			Time: time.Now().Unix(), Provider: pid, Key: "", Method: r.Method,
 			Path: "/" + sub, Code: http.StatusBadGateway, OK: false, Ms: elapsed,
@@ -204,6 +212,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 		_ = err
 	}
 
+	a.metrics.request(pid, resp.StatusCode, time.Since(started))
 	label := ""
 	if used != nil {
 		label = used.Label

@@ -1,0 +1,26 @@
+# Run KeyRotator as a container with the config persisted in a named volume.
+#
+#   docker compose up -d
+#   docker compose exec keyrotator keyrotator list
+#
+# Only the host can reach the port (127.0.0.1). Set a proxy token and an admin
+# token before publishing the port to any other network.
+services:
+  keyrotator:
+    build: .
+    image: keyrotator:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - keyrotator-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  keyrotator-data:

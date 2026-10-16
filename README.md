@@ -6,6 +6,10 @@ and the rotator injects the next healthy key, cools down keys that get rate-limi
 or rejected, retries transparently, and shows everything in a localhost dashboard.
 With a proxy token set the URL becomes `http://127.0.0.1:8787/p/<provider>/<token>/...`.
 
+<p align="center">
+  <img src="docs/images/providers.png" alt="KeyRotator dashboard showing providers, key aliases and health" width="900">
+</p>
+
 - **Local proxy** — `POST /p/<provider>/chat/completions` → upstream, with a pooled key injected.
 - **Rotation** — round-robin, random, or least-recently-used, per provider.
 - **Failover** — `401/403/429/5xx`/network errors mark a key bad and retry with the next key.
@@ -25,8 +29,29 @@ With a proxy token set the URL becomes `http://127.0.0.1:8787/p/<provider>/<toke
 - **Management CLI** — `keyrotator list|add|add-key|url|token|test …` drives the running instance
   from a terminal, no restart needed.
 - **Windows service** — installs to start automatically at boot and restart on crash.
+- **Start at login** — one switch in Settings (or `POST /api/autostart`) on Windows, macOS and Linux.
+- **Key aliases** — name every key (`billing`, `team A`). Unnamed keys become `key 1`, `key 2`, …
+- **Terminal UI** — `keyrotator tui` gives a full-screen dashboard in any terminal, including over SSH.
+- **Metrics** — Prometheus `/metrics` with per-provider request, retry, rate-limit and latency series.
+- **Docker** — a non-root image with a read-only root filesystem and a persistent config volume.
 
-Everything is standard-library Go: no dependencies, no runtime, one `.exe`.
+Runs on **Windows, macOS and Linux** as a single binary with no runtime. The server uses only the Go
+standard library. The terminal UI adds Bubble Tea and Lip Gloss.
+
+## Platform support
+
+| | Windows | macOS | Linux |
+| --- | --- | --- | --- |
+| Proxy, dashboard, CLI | ✅ | ✅ | ✅ |
+| Terminal UI (`tui`) | ✅ | ✅ | ✅ |
+| Start at login (Settings toggle) | Run key (no admin needed) | LaunchAgent | XDG autostart |
+| Windows service (`-service`) | ✅ | — (use launchd, see below) | — (use systemd, see below) |
+| Config location | `%APPDATA%\KeyRotator` | `~/Library/Application Support/KeyRotator` | `$XDG_CONFIG_HOME/KeyRotator` (default `~/.config`) |
+| Build | `scripts\build.ps1` | `scripts/build.sh` | `scripts/build.sh` |
+| Tested | Windows 11 | CI only (cross-compiled and vetted) | Ubuntu on WSL2 |
+
+macOS is exercised by the CI matrix. Start-at-login on macOS has not been run on real hardware yet, so
+please report any problems.
 
 ---
 
@@ -97,7 +122,7 @@ Running `bin\keyrotator.exe` with no command starts the server.
 
 | Flag | Description |
 | --- | --- |
-| `-config PATH` | config file (default `%APPDATA%\KeyRotator\config.json`) |
+| `-config PATH` | config file (default: the OS user config directory, see the table above) |
 | `-listen ADDR` | override listen address (default `127.0.0.1:8787`) |
 | `-open` | open the dashboard in your browser on start |
 | `-service CMD` | `install` / `uninstall` / `start` / `stop` / `restart` / `status` / `run` |
@@ -129,12 +154,14 @@ and the admin token — in the same config file, so there is no extra setup:
 | `on <provider>` / `off <provider>` | enable / disable a provider |
 | `url <provider>` | print the authenticated proxy base URL |
 | `keys <provider>` | list keys |
-| `add-key <provider> <secret>` | add a key — `--label` |
+| `add-key <provider> <secret>` | add a key — `--label` sets its alias (default `key N`) |
+| `alias <provider> <key> <new-name>` | rename a key, by id or current alias |
 | `rm-key <provider> <key-id>` | delete a key |
 | `key-on` / `key-off <provider> <key-id>` | enable / disable a key |
 | `test [provider]` | health-probe keys against the upstream |
 | `token [show\|gen\|set <value>\|clear]` | manage the global proxy token |
 | `settings` | show global settings |
+| `tui` | full-screen terminal dashboard (see below) |
 
 `<provider>` may be an id, a name, or an unambiguous id prefix. Global flags may appear anywhere:
 `-config PATH`, `-addr ADDR`, `-admin-token T` (or `KEYROTATOR_ADMIN_TOKEN`), `-json`.
@@ -142,6 +169,89 @@ and the admin token — in the same config file, so there is no extra setup:
 ```powershell
 .\bin\keyrotator.exe -addr 127.0.0.1:8797 list        # talk to a non-default instance
 .\bin\keyrotator.exe list -json                       # machine-readable output
+```
+
+## Terminal UI
+
+`keyrotator tui` opens a full-screen dashboard against the running instance. It is a client of the
+admin API, like the CLI and the web dashboard, so it always shows live state and never edits the config
+file directly. It works in any terminal, including over SSH. Example layout (the data is made up):
+
+```
+KeyRotator  v1.0.0  127.0.0.1:8787  ● online
+────────────────────────────────────────────────────────────────────────
+PROVIDERS                      │ KEYS  OpenAI  2/3 healthy
+› OpenAI              3 keys   │   LABEL        KEY            STATUS       OK   ERR  LAST USED
+  Anthropic           1 keys   │ › billing      sk-******CCC   ok           41     0  12s ago
+                               │   key 2        sk-******FFF   cooling 45s  17     3  2m ago
+                               │   key 3        sk-******III   disabled      0     0  -
+
+RECENT REQUESTS
+22:50:24  200  POST /chat/completions  OpenAI  billing  312ms
+```
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` / `j` `k` | move within the focused pane |
+| `←` `→` / `tab` | switch between providers and keys |
+| `t` / `T` | test the selected key / every key of the provider |
+| `e` | enable or disable the selected key |
+| `P` | enable or disable the selected provider |
+| `n` | rename the selected key's alias |
+| `a` | add a key (paste it; the alias defaults to `key N`) |
+| `d` | delete the selected key (asks for `y`) |
+| `r` | clear a key's cooldown and error state |
+| `g` | refresh now |
+| `q` / `ctrl+c` | quit (the server keeps running) |
+
+Key values are masked everywhere in the TUI. Full values are never printed.
+
+## Key aliases
+
+Every key has an **alias**: a short name such as `billing` or `team A`. Aliases make the dashboard,
+logs and CLI readable, and you can pin a request to a key by its alias.
+
+- A key added without an alias is named `key 1`, `key 2`, and so on. The lowest free number is used,
+  so deleting `key 2` and adding a new key brings back `key 2`.
+- Aliases are unique within a provider and compared case-insensitively. A clash returns `409`.
+- Rename with the dashboard, `keyrotator alias OpenAI "key 2" billing`, the TUI's `n`, or
+  `PUT /api/providers/{id}/keys/{kid}` with `{"label": "..."}`.
+- To send a request with a specific key, set the `X-Rotator-Key` header to its alias or id.
+
+## Start at login and background services
+
+The **Start at login** switch in Settings (or `POST /api/autostart` with `{"enabled": true}`) registers
+KeyRotator with the operating system. Nothing is stored in the config file, so the switch always
+reflects what the OS will actually run.
+
+| OS | Mechanism | Where |
+| --- | --- | --- |
+| Windows | per-user Run key (no Administrator rights needed) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
+| macOS | LaunchAgent, started at login and restarted after a crash | `~/Library/LaunchAgents/com.keyrotator.agent.plist` |
+| Linux | XDG autostart entry for desktop sessions | `~/.config/autostart/keyrotator.desktop` |
+
+The login instance is started with `-quiet -config <your config file>`, so it reads the same state you
+configured.
+
+On a headless Linux server, use a systemd user unit instead:
+
+```ini
+# ~/.config/systemd/user/keyrotator.service
+[Unit]
+Description=KeyRotator API key proxy
+After=network-online.target
+
+[Service]
+ExecStart=%h/keyrotator/bin/keyrotator -quiet
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+```sh
+systemctl --user enable --now keyrotator
+loginctl enable-linger "$USER"     # keep it running when nobody is logged in
 ```
 
 ## HTTP API
@@ -152,11 +262,13 @@ The dashboard is a thin client over a small JSON API.
 | --- | --- | --- |
 | GET | `/api/state` | providers, keys, settings, addresses |
 | GET | `/api/logs` | recent proxied requests |
-| POST | `/api/settings` | `{maxRetries, cooldownSec, adminToken, proxyToken, rateLimitRPS, keyRateLimitRPS}` |
+| POST | `/api/settings` | `{listen, maxRetries, cooldownSec, adminToken, proxyToken, rateLimitRPS, keyRateLimitRPS}` (`listen` applies on next start) |
+| POST | `/api/autostart` | `{enabled}`: turn start-at-login on or off; returns what is installed |
+| GET | `/metrics` | Prometheus metrics (see below) |
 | POST | `/api/providers` | create provider (also accepts `proxyToken`, `rateLimitRPS`, `keyRateLimitRPS`) |
 | PUT / DELETE | `/api/providers/{id}` | update / delete provider |
 | POST | `/api/providers/{id}/test` | health-probe every key |
-| POST | `/api/providers/{id}/keys` | add a key |
+| POST | `/api/providers/{id}/keys` | add a key; optional `label` (alias), defaults to `key N` |
 | PUT / DELETE | `/api/providers/{id}/keys/{kid}` | update / delete a key |
 | POST | `/api/providers/{id}/keys/{kid}/test` | probe one key |
 | POST | `/api/providers/{id}/keys/{kid}/reset` | clear cooldown/invalid status |
@@ -264,41 +376,102 @@ because the rotator throttled them.
   the service from refusing to boot on startup.
 - The proxy endpoint is open to anything that can reach the listen address unless you set a
   **proxy token** (see above). Set one before binding to `0.0.0.0`.
+- At startup KeyRotator logs a **warning** if it listens beyond localhost with no proxy or admin token.
+- Config is saved on shutdown as well as periodically, so Ctrl+C does not lose recent changes.
+
+## Docker
+
+A minimal image (distroless, non-root, read-only root filesystem). The config lives on a volume, so
+upgrading the image keeps your keys and settings.
+
+```sh
+docker compose up -d                          # builds the image and binds 127.0.0.1:8787
+docker compose exec keyrotator keyrotator list
+```
+
+The compose file publishes the port on `127.0.0.1` only. Before exposing it to any other network,
+set a proxy token and an admin token in Settings.
+
+## Metrics
+
+`GET /metrics` serves Prometheus text format. If an admin token is set, the scrape must send it
+(`X-Admin-Token` header, or `?token=`).
+
+| Series | Type | Labels | Meaning |
+| --- | --- | --- | --- |
+| `keyrotator_requests_total` | counter | `provider`, `code` | proxied requests by upstream status (429 and 502 included) |
+| `keyrotator_request_duration_seconds` | summary | `provider` | time spent proxying (`_sum`, `_count`) |
+| `keyrotator_retries_total` | counter | `provider` | failovers to another key within a request |
+| `keyrotator_rate_limited_total` | counter | `provider`, `scope` | refused by a local limit (`scope` is `provider` or `key`) |
+| `keyrotator_keys` | gauge | `provider`, `state` | keys in each state: `ok`, `cooldown`, `invalid`, `error`, `disabled` |
+| `keyrotator_providers` | gauge | | configured providers |
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: keyrotator
+    static_configs: [{ targets: ["127.0.0.1:8787"] }]
+    # authorization: { credentials: "<admin token>" }   # if an admin token is set
+```
 
 ## Development
 
-Requires Go 1.22+ (see `go.mod`). From the repo root:
+Requires **Go 1.24+** (see `go.mod`). From the repo root:
 
-```powershell
-go vet ./...                                             # static checks
-go test ./...                                            # unit tests
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1   # build bin\keyrotator.exe
-powershell -ExecutionPolicy Bypass -File .\scripts\update.ps1  # stop, rebuild, restart
+```sh
+go vet ./...                 # static checks
+go test ./...                # unit and end-to-end tests
+./scripts/build.sh           # macOS / Linux: builds bin/keyrotator
+./scripts/update.sh          # macOS / Linux: stop, rebuild, restart
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to send changes and [AGENTS.md](AGENTS.md)
-for the conventions used by AI coding agents working in this repo.
+On Windows, use the PowerShell equivalents:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1    # builds bin\keyrotator.exe
+powershell -ExecutionPolicy Bypass -File .\scripts\update.ps1   # stop, rebuild, restart
+```
+
+Continuous integration (`.github/workflows/ci.yml`) runs vet and tests on Linux, macOS and Windows,
+and builds the Docker image.
+
+Dependencies are kept deliberately small. The server uses only the standard library. The terminal UI
+adds [Bubble Tea](https://github.com/charmbracelet/bubbletea) and
+[Lip Gloss](https://github.com/charmbracelet/lipgloss). See [CONTRIBUTING.md](CONTRIBUTING.md) before
+adding anything else.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to send changes and [AGENTS.md](AGENTS.md) for the
+conventions used by AI coding agents working in this repo.
 
 ## Project layout
 
 ```
 keyrotator/
-  cmd/keyrotator/          the single main package
-    main.go                entrypoint + flags
-    app.go                 app wiring, HTTP server, request log, health sweeper
-    config.go              config model, atomic persistence
-    rotator.go             key selection, cooldown/failure classification
-    limits.go              token-bucket rate limiter (provider + per key)
-    proxy.go               the rotating proxy handler (/p/...) + proxy auth
-    api.go                 admin REST API + embedded UI
-    cli.go                 `keyrotator <command>` management CLI
-    service_windows.go     Windows service install/run
-    service_other.go       non-Windows stub
-    *_test.go              unit tests
-    web/ui.html            dashboard (embedded into the binary)
+  cmd/keyrotator/            the single main package
+    main.go                  entrypoint, flags, mode dispatch
+    app.go                   wiring, HTTP server, request log, health sweeper, shutdown
+    config.go                config model, atomic persistence, migration
+    alias.go                 key aliases: default "key N", uniqueness, rename
+    rotator.go               key selection, cooldown/failure classification, injection
+    limits.go                token-bucket rate limiter (provider + per key)
+    proxy.go                 the rotating proxy handler (/p/...) and proxy-token auth
+    api.go                   admin REST API and embedded UI
+    metrics.go               Prometheus counters and scrape endpoint
+    cli.go                   `keyrotator <command>` management CLI
+    tui.go                   full-screen terminal dashboard (`keyrotator tui`)
+    autostart.go             start-at-login interface, plus the per-OS hooks:
+    autostart_windows.go     per-user Run key
+    autostart_darwin.go      LaunchAgent
+    autostart_linux.go       XDG autostart entry
+    autostart_other.go       unsupported platforms
+    service_windows.go       Windows service install/run
+    service_other.go         non-Windows stub
+    *_test.go                unit and end-to-end tests
+    web/ui.html              dashboard (embedded into the binary)
   scripts/
-    build.ps1              build into bin\keyrotator.exe
-    update.ps1             stop the running instance, rebuild, restart
-  .github/workflows/       CI (vet, test, build on Linux and Windows)
-  bin/                     build output (git-ignored)
+    build.ps1 / build.sh     build into bin/
+    update.ps1 / update.sh   stop the running instance, rebuild, restart
+  .github/workflows/ci.yml   vet, tests and builds on Linux, macOS and Windows
+  Dockerfile, docker-compose.yml
+  bin/                       build output (git-ignored)
 ```

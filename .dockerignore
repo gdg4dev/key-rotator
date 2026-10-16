@@ -1,0 +1,6 @@
+.git
+bin
+*.exe
+*.exe~
+config.json
+config.json.corrupt-*

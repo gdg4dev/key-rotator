@@ -20,7 +20,7 @@ func main() {
 	}
 
 	var (
-		cfgPath  = flag.String("config", "", `config file path (default: %APPDATA%\KeyRotator\config.json)`)
+		cfgPath  = flag.String("config", "", "config file path (default: KeyRotator/config.json in the OS user config dir)")
 		listen   = flag.String("listen", "", "override listen address, e.g. 127.0.0.1:8787")
 		svc      = flag.String("service", "", "Windows service control: install | uninstall | start | stop | restart | status | run")
 		svcRun   = flag.Bool("service-run", false, "run under the Windows service dispatcher (used by the SCM)")

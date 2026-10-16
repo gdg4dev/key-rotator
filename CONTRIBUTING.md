@@ -5,8 +5,9 @@ feature ideas are all welcome.
 
 ## Ground rules
 
-- **Standard library only.** The project has no third-party dependencies and
-  should stay that way unless there is a very strong reason.
+- **Keep dependencies minimal.** The server uses only the standard library. The
+  terminal UI adds Bubble Tea and Lip Gloss. Any new module needs a clear reason,
+  and it should be mentioned in the pull request description.
 - **One binary, no runtime.** Anything new must still compile into the single
   `keyrotator.exe` (the UI is embedded with `go:embed`).
 - **Never log or return raw API keys.** Use the masked form for anything shown
@@ -16,7 +17,7 @@ feature ideas are all welcome.
 
 ## Getting set up
 
-1. Install Go (1.22 or newer; see `go.mod`).
+1. Install Go (1.24 or newer; see `go.mod`).
 2. Clone the repo and run the checks:
 
    ```sh
@@ -25,8 +26,13 @@ feature ideas are all welcome.
    gofmt -l .        # should print nothing
    ```
 
-3. Build locally with `scripts\build.ps1` on Windows, or `go build ./cmd/keyrotator`
-   elsewhere.
+3. Build locally with `scripts\build.ps1` on Windows or `scripts/build.sh` on macOS and
+   Linux. Both write to `bin/`.
+
+Please keep the code working on all three platforms. Windows-only code belongs in
+`*_windows.go` files, macOS-only code in `*_darwin.go`, and Linux-only code in `*_linux.go`,
+with a fallback for other platforms. Run `GOOS=darwin go vet ./...` and
+`GOOS=windows go vet ./...` before you open a pull request if you touched platform code.
 
 ## Making a change
 

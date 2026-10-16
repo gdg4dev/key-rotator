@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -35,3 +35,12 @@ jobs:
 
       - name: Build
         run: go build -trimpath -o keyrotator${{ runner.os == 'Windows' && '.exe' || '' }} ./cmd/keyrotator
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t keyrotator:ci .

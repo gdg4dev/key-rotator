@@ -45,7 +45,8 @@ var cliCommands = map[string]bool{
 	"add": true, "rm": true, "remove": true, "delete": true,
 	"on": true, "enable": true, "off": true, "disable": true,
 	"url": true, "keys": true, "add-key": true, "rm-key": true,
-	"key-on": true, "key-off": true, "test": true, "token": true, "settings": true,
+	"key-on": true, "key-off": true, "test": true, "token": true, "settings": true, "alias": true,
+	"tui": true,
 }
 
 // valueFlags are the flags that consume the following argument unless they are
@@ -143,6 +144,10 @@ func (c *cliClient) dispatch(cmd string, args []string, flags map[string]string)
 		return c.cmdToken(args)
 	case "settings":
 		return c.cmdSettings()
+	case "alias":
+		return c.cmdAlias(args)
+	case "tui":
+		return runTUI(c)
 	}
 	return -1
 }
@@ -940,18 +945,20 @@ commands:
   on <provider> | off <provider>  enable / disable a provider
   url <provider>                  print the authenticated proxy URL
   keys <provider>                 list a provider's keys
-  add-key <provider> <secret>     add a key            [--label L]
+  add-key <provider> <secret>     add a key            [--label ALIAS] (default: key N)
+  alias <provider> <key> <name>   rename a key (by id or alias)
   rm-key <provider> <key-id>      delete a key
   key-on <provider> <key-id>      enable a key   (key-off to disable)
   test [provider]                 probe keys against the upstream health path
   token                           show the proxy token (see also: token gen,
                                   token set <value>, token clear)
   settings                        show global settings
+  tui                             full-screen terminal dashboard (q to quit)
 
   A <provider> may be given as its id, its name, or an unambiguous id prefix.
 
 global flags:
-  -config PATH       config file (default: %APPDATA%\KeyRotator\config.json)
+  -config PATH       config file (default: KeyRotator/config.json in the OS user config dir)
   -addr ADDR         admin API address (default: the config's listen address)
   -admin-token T     admin token (default: from the config, or
                      KEYROTATOR_ADMIN_TOKEN)
@@ -961,4 +968,23 @@ global flags:
 Running the server itself is unchanged: start it with no command
 (see keyrotator -h), and use the commands above to manage it live.
 `)
+}
+
+// cmdAlias renames a key. The key can be referenced by id or by its current alias.
+func (c *cliClient) cmdAlias(args []string) int {
+	if !need(args, 3, "alias <provider> <key> <new-alias>") {
+		return 2
+	}
+	return c.withProvider(args[0], func(st *stateResp, p *Provider) int {
+		kid, err := c.resolveKey(st, p, args[1])
+		if err != nil {
+			return fail(err)
+		}
+		alias := strings.Join(args[2:], " ")
+		if err := c.call(http.MethodPut, "/api/providers/"+p.ID+"/keys/"+kid.ID,
+			map[string]any{"label": alias}, nil); err != nil {
+			return fail(err)
+		}
+		return ok("renamed key " + kid.ID + " to " + alias)
+	})
 }

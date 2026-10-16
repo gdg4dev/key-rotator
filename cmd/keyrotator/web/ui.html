@@ -3,240 +3,372 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>API Key Rotator</title>
+<meta name="color-scheme" content="light dark">
+<title>KeyRotator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f5f52' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h12l-3-3M20 16H8l3 3'/%3E%3C/svg%3E">
 <style>
-  :root{
-    --bg:#090c12;
-    --surface:#11151d;
-    --surface-2:#151a24;
-    --surface-3:#1b2230;
-    --line:#232a37;
-    --line-2:#2e3848;
-    --text:#e9edf5;
-    --dim:#98a2b6;
-    --faint:#68738a;
-    --accent:#5b8cff;
-    --accent-2:#87abff;
-    --ok:#37d67a;
-    --warn:#f5b544;
-    --err:#ff6b6b;
-    --radius:14px;
-    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+:root {
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --sunken: #f0efea;
+  --line: #e4e2dc;
+  --line-strong: #cfccc2;
+  --ink: #1c1b19;
+  --ink-2: #56534c;
+  --ink-3: #8b877d;
+  --accent: #1f5f52;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2eeea;
+  --ok: #2b7a53;
+  --ok-soft: #e3f1e9;
+  --warn: #92600f;
+  --warn-soft: #f6eddb;
+  --bad: #a13a2b;
+  --bad-soft: #f7e5e1;
+  --off: #76726a;
+  --off-soft: #ebeae5;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151513;
+    --surface: #1c1b19;
+    --sunken: #181715;
+    --line: #2c2a26;
+    --line-strong: #3d3a33;
+    --ink: #ecebe6;
+    --ink-2: #aeaaa0;
+    --ink-3: #7f7b71;
+    --accent: #7cc7b3;
+    --accent-ink: #0f1f1b;
+    --accent-soft: #1d2f2a;
+    --ok: #7cc7a0;
+    --ok-soft: #1b2a22;
+    --warn: #e0b25c;
+    --warn-soft: #2e2615;
+    --bad: #ec8a7d;
+    --bad-soft: #321d1a;
+    --off: #9d998e;
+    --off-soft: #262521;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
-    font:14px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased}
-  body{background-image:radial-gradient(900px 420px at 78% -12%,rgba(91,140,255,.10),transparent 62%),
-    radial-gradient(700px 380px at 6% -8%,rgba(55,214,122,.05),transparent 60%);
-    background-attachment:fixed}
-  a{color:var(--accent-2);text-decoration:none}
-  a:hover{text-decoration:underline}
-  .mono{font-family:var(--mono)}
-  .muted{color:var(--dim)}
-  .faint{color:var(--faint)}
-  .small{font-size:12px}
-  .hide{display:none !important}
-  .spacer{flex:1}
+}
 
-  /* ---------- controls ---------- */
-  button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line-2);
-    background:var(--surface-3);color:var(--text);padding:7px 13px;line-height:1.2;
-    transition:background .14s,border-color .14s,color .14s,transform .06s;white-space:nowrap}
-  button:hover{border-color:#3a465c;background:#222b3c}
-  button:active{transform:translateY(1px)}
-  button.primary{background:linear-gradient(180deg,var(--accent-2),var(--accent));border-color:var(--accent);
-    color:#06132e;font-weight:650;box-shadow:0 6px 18px -8px rgba(91,140,255,.9)}
-  button.primary:hover{filter:brightness(1.07);background:linear-gradient(180deg,var(--accent-2),var(--accent))}
-  button.ghost{background:transparent;border-color:var(--line)}
-  button.ghost:hover{background:var(--surface-2)}
-  button.danger{color:var(--err);border-color:#40262d;background:transparent}
-  button.danger:hover{background:#2a171c;border-color:#5a3038}
-  button.tiny{padding:4px 9px;font-size:12px;border-radius:7px}
-  button.icon{padding:4px 8px;font-size:13px;line-height:1;border-radius:7px;color:var(--faint)}
-  button.icon:hover{color:var(--err);border-color:#5a3038;background:#2a171c}
-  button:disabled{opacity:.55;cursor:not-allowed}
-  input,select{font:inherit;background:#0b101a;border:1px solid var(--line);color:var(--text);
-    border-radius:9px;padding:8px 11px;outline:none;width:100%;transition:border-color .14s,box-shadow .14s}
-  input::placeholder{color:#5a6478}
-  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,140,255,.15)}
-  input:disabled{opacity:.5;background:#0a0e16}
-  select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#7d879b 50%),linear-gradient(135deg,#7d879b 50%,transparent 50%);
-    background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;
-    background-repeat:no-repeat;padding-right:30px}
-  label.lbl{display:block;font-size:11px;color:var(--dim);margin:0 0 5px;letter-spacing:.35px;text-transform:uppercase}
-  code{font-family:var(--mono)}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.faint { color: var(--ink-3); }
+.small { font-size: 12.5px; }
+.muted { color: var(--ink-2); }
+code { font-family: var(--mono); font-size: 12px; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
 
-  /* ---------- shell ---------- */
-  .wrap{max-width:1200px;margin:0 auto;padding:0 22px 60px}
-  header.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-    padding:14px 0;margin-bottom:22px;background:rgba(9,12,18,.82);backdrop-filter:blur(12px);
-    border-bottom:1px solid var(--line)}
-  .brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:650;letter-spacing:.2px}
-  .brand .mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;
-    background:linear-gradient(150deg,rgba(91,140,255,.28),rgba(91,140,255,.06));
-    border:1px solid rgba(91,140,255,.35);color:var(--accent-2)}
-  .brand b{color:var(--accent-2);font-weight:650}
+/* ---------- shell ---------- */
+.app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+.side {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 20px 14px;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 22px; font-weight: 650; letter-spacing: -0.01em; }
+.brand svg { color: var(--accent); flex: none; }
+.nav a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--radius-sm);
+  color: var(--ink-2); text-decoration: none; font-weight: 500;
+}
+.nav a:hover { background: var(--sunken); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--sunken); color: var(--ink); font-weight: 600; }
+.nav .count { margin-left: auto; font: 12px var(--mono); color: var(--ink-3); }
+.side-foot { margin-top: auto; padding: 10px 8px 0; font-size: 12px; color: var(--ink-3); }
+.side-foot .mono { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);
-    border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--dim)}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(55,214,122,.16)}
-  .dot.off{background:var(--err);box-shadow:0 0 0 3px rgba(255,107,107,.16)}
-  .addr{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.main { padding: 28px 40px 64px; min-width: 0; max-width: 1200px; width: 100%; }
+.page-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+.page-head h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.015em; }
+.page-head .sub-title { color: var(--ink-2); font-size: 13px; margin-top: 1px; }
+.page-head .grow { flex: 1; }
+.live { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.dot.off { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); }
 
-  /* ---------- stat cards ---------- */
-  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}
-  .metric{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
-  .metric .v{font-size:22px;font-weight:650;letter-spacing:-.3px}
-  .metric .k{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
-  .metric.ok .v{color:var(--ok)} .metric.warn .v{color:var(--warn)} .metric.err .v{color:var(--err)}
+/* ---------- controls ---------- */
+button, .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink);
+  font: inherit; font-weight: 550; cursor: pointer; white-space: nowrap;
+}
+button:hover { background: var(--sunken); }
+button:disabled { opacity: 0.55; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.primary:hover { filter: brightness(1.06); background: var(--accent); }
+button.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
+button.ghost:hover { background: var(--sunken); color: var(--ink); }
+button.danger { color: var(--bad); }
+button.sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+button.icon { width: 28px; height: 28px; padding: 0; font-size: 16px; line-height: 1; border-color: transparent; background: transparent; color: var(--ink-3); }
+button.icon:hover { color: var(--bad); background: var(--bad-soft); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
 
-  /* ---------- cards ---------- */
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-    padding:18px;margin-bottom:16px}
-  .card.provider{transition:border-color .16s}
-  .card.provider:hover{border-color:var(--line-2)}
-  .card h2{margin:0 0 14px;font-size:14px;font-weight:650;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+input, select {
+  width: 100%; min-width: 0; height: 34px; padding: 0 10px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); font: inherit;
+}
+input::placeholder { color: var(--ink-3); }
+input:disabled { background: var(--sunken); color: var(--ink-3); }
+input.mono { font-family: var(--mono); font-size: 12.5px; }
+label.lbl { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 550; color: var(--ink-2); }
+.field-note { margin-top: 6px; font-size: 12px; color: var(--ink-3); }
 
-  .p-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .p-name{font-weight:650;font-size:16px;letter-spacing:.1px}
-  .p-actions{display:flex;gap:7px;flex-wrap:wrap}
-  .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px}
-  .tag{display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--line);
-    border-radius:7px;padding:3px 9px;font-size:11px;color:var(--dim);font-family:var(--mono)}
-  .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;
-    font-size:11px;font-weight:600;letter-spacing:.2px}
-  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.9}
-  .b-ok{background:rgba(55,214,122,.13);color:var(--ok)}
-  .b-cd{background:rgba(245,181,68,.14);color:var(--warn)}
-  .b-bad{background:rgba(255,107,107,.13);color:var(--err)}
-  .b-off{background:var(--surface-3);color:var(--faint)}
+.switch { position: relative; display: inline-block; width: 36px; height: 20px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.switch span {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--line-strong); transition: background .15s;
+}
+.switch span::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: var(--surface);
+  transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch input:disabled + span { opacity: .5; }
 
-  .proxy{display:flex;align-items:center;gap:8px;margin-top:12px;background:#0b101a;
-    border:1px solid var(--line);border-radius:10px;padding:7px 9px 7px 12px}
-  .proxy code{flex:1;font-size:12px;color:var(--dim);overflow:auto;white-space:nowrap}
+/* ---------- surfaces ---------- */
+.surface { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-title { display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px; }
+.section-title h2 { margin: 0; font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
 
-  .fields{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
-  .rule-chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--line);
-    border-radius:8px;padding:4px 10px;font-size:12px;font-family:var(--mono);color:var(--dim)}
-  .rc-in{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);
-    border-right:1px solid var(--line-2);padding-right:7px}
-  .rc-name{color:var(--text)}
-  .rc-eq{color:var(--faint)}
-  .rc-val{color:var(--accent-2)}
-  .rc-val .k{color:var(--ok)}
-  .rc-val .faint{color:var(--faint)}
+.summary {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 28px; overflow: hidden;
+}
+.summary > div { padding: 14px 18px; border-left: 1px solid var(--line); }
+.summary > div:first-child { border-left: 0; }
+.summary .v { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.summary .k { font-size: 12.5px; color: var(--ink-2); }
+.summary .ok { color: var(--ok); }
+.summary .warn { color: var(--warn); }
+.summary .bad { color: var(--bad); }
 
-  /* ---------- tables ---------- */
-  .tbl-wrap{margin-top:14px}
-  table{width:100%;border-collapse:collapse}
-  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--faint);
-    font-weight:600;padding:0 10px 8px}
-  td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:middle;font-size:13px}
-  tbody tr:hover{background:rgba(255,255,255,.017)}
-  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim)}
-  .kval{display:inline-block;max-width:250px;overflow:hidden;text-overflow:ellipsis;
-    white-space:nowrap;vertical-align:middle;color:var(--dim)}
-  td.right{text-align:right;white-space:nowrap}
+/* ---------- badges & tags ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 550; white-space: nowrap;
+}
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.b-ok { background: var(--ok-soft); color: var(--ok); }
+.b-cd { background: var(--warn-soft); color: var(--warn); }
+.b-bad { background: var(--bad-soft); color: var(--bad); }
+.b-off { background: var(--off-soft); color: var(--off); }
+.tag {
+  padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--sunken); color: var(--ink-2); font-size: 12px; white-space: nowrap;
+}
 
-  .keybar{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
-  .keybar input{flex:1;min-width:220px}
+/* ---------- providers ---------- */
+.provider { margin-bottom: 16px; overflow: hidden; }
+.p-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.p-name { font-size: 15px; font-weight: 650; }
+.p-actions { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.p-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.fields { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.rule-chip {
+  display: inline-flex; gap: 6px; align-items: center;
+  padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--sunken);
+  font: 12px var(--mono); color: var(--ink-2);
+}
+.rc-in, .rc-eq { color: var(--ink-3); }
+.rc-name { color: var(--ink); }
+.k { color: var(--accent); }
+.proxy { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+.proxy code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; background: none; padding: 0; color: var(--ink-2); }
 
-  /* ---------- editor ---------- */
-  .sub{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:14px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-  .rules-scroll{overflow-x:auto;margin-top:4px;padding-bottom:2px}
-  .rules-grid{min-width:880px}
-  .rules-head,.rule{display:grid;
-    grid-template-columns:26px 88px minmax(120px,1.1fr) 118px minmax(110px,1.15fr) minmax(88px,.85fr) minmax(88px,.85fr) 32px;
-    gap:8px;align-items:center}
-  .rules-head{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;padding:0 2px 7px}
-  .rule{margin-bottom:8px}
-  .rule.off{opacity:.55}
-  .rule input,.rule select{padding:7px 10px;font-size:12.5px}
-  .rule select{font-size:12px}
-  .rule .mono{font-size:12px}
-  .rule .tick{display:grid;place-items:center;margin:0}
-  .rule input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
-  .hint{margin-top:10px;font-size:12px;color:var(--faint);line-height:1.7}
-  .hint code{background:#0b101a;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--dim)}
-  .sep{height:1px;background:var(--line);margin:15px 0}
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  padding: 9px 18px; border-bottom: 1px solid var(--line);
+  text-align: left; font-size: 12px; font-weight: 550; color: var(--ink-3); white-space: nowrap;
+}
+td { padding: 10px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.right { text-align: right; white-space: nowrap; }
+.right button { height: 28px; padding: 0 8px; font-size: 12.5px; }
+.kval { color: var(--ink-2); }
 
-  /* ---------- log ---------- */
-  .log{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:11px}
-  .log table{min-width:640px}
-  .log th{padding:9px 10px 8px;background:var(--surface-2);position:sticky;top:0;z-index:1}
-  .log td{padding:7px 10px;font-size:12.5px}
-  .log tbody tr:hover{background:rgba(255,255,255,.025)}
+.keybar { display: flex; gap: 8px; padding: 12px 18px; background: var(--sunken); border-top: 1px solid var(--line); }
+.keybar input { flex: 1; }
+.keybar input.alias { flex: 0 0 190px; }
+.panel { padding: 18px; background: var(--sunken); border-bottom: 1px solid var(--line); }
+.panel .row + .row { margin-top: 14px; }
+.grid2, .grid3 { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sep { height: 1px; background: var(--line); margin: 18px 0; }
+.hint { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+.rules-scroll { overflow-x: auto; }
+.rules-grid { min-width: 860px; }
+.rule, .rules-head {
+  display: grid; align-items: center; gap: 6px;
+  grid-template-columns: 26px 84px minmax(120px, 1.1fr) 130px minmax(120px, 1.2fr) 100px 100px 28px;
+}
+.rules-head { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+.rule { margin-bottom: 6px; }
+.rule.off input:not([type=checkbox]), .rule.off select { opacity: .55; }
+.rule input[type=checkbox] { width: 16px; height: 16px; margin: 0 auto; display: block; accent-color: var(--accent); }
+.rule input:disabled { background: transparent; }
+.rule .muted { color: var(--ink-3); }
 
-  .empty{color:var(--dim);padding:22px;text-align:center;font-size:13px}
-  .empty .big{font-size:15px;color:var(--text);margin-bottom:4px}
+.empty { padding: 36px 24px; text-align: center; color: var(--ink-3); }
+.empty .big { margin-bottom: 4px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.empty.compact { padding: 20px; }
 
-  /* ---------- toast ---------- */
-  .toast{position:fixed;right:20px;bottom:20px;z-index:50;background:var(--surface-3);
-    border:1px solid var(--line-2);border-left:3px solid var(--accent);border-radius:11px;
-    padding:11px 15px;max-width:400px;font-size:13px;box-shadow:0 16px 40px -12px rgba(0,0,0,.75);
-    opacity:0;transform:translateY(10px);transition:.22s cubic-bezier(.2,.8,.3,1);pointer-events:none}
-  .toast.show{opacity:1;transform:none}
-  .toast.err{border-left-color:var(--err)}
-  .toast.ok{border-left-color:var(--ok)}
+.log-count { margin-left: auto; }
+.badge-code { font: 12px var(--mono); }
 
-  footer.foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--faint);
-    font-size:12px;padding:6px 2px}
+/* ---------- settings ---------- */
+.settings-group { padding: 4px 0; }
+.settings-group + .settings-group { border-top: 1px solid var(--line); }
+.setting { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: 24px; padding: 18px 20px; align-items: start; }
+.setting h3 { margin: 0 0 3px; font-size: 14px; font-weight: 600; }
+.setting p { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+.setting .control { min-width: 0; }
+.toggle-row { display: flex; align-items: center; gap: 12px; }
+.inline { display: flex; gap: 8px; align-items: center; }
+.savebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
 
-  @media (max-width:900px){
-    .metrics{grid-template-columns:repeat(2,1fr)}
-    .grid2,.grid3{grid-template-columns:1fr}
-  }
+/* ---------- activity ---------- */
+.log-wrap { overflow-x: auto; }
+.log-wrap td { font-size: 12.5px; }
+
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; right: 20px; bottom: 20px; z-index: 10;
+  max-width: 380px; padding: 11px 14px; border-radius: var(--radius-sm);
+  background: var(--ink); color: var(--bg); font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  opacity: 0; transform: translateY(6px); pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+.toast.show { opacity: 1; transform: none; }
+.toast.ok { background: var(--ok); color: #fff; }
+.toast.err { background: var(--bad); color: #fff; }
+
+.foot { margin-top: 36px; font-size: 12px; color: var(--ink-3); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 980px) {
+  .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .summary > div:nth-child(4) { border-left: 0; }
+  .summary > div:nth-child(n+4) { border-top: 1px solid var(--line); }
+  .setting { grid-template-columns: 1fr; gap: 10px; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 14px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .brand { padding: 0 8px 0 0; }
+  .nav { display: flex; gap: 2px; }
+  .side-foot { display: none; }
+  .main { padding: 20px 16px 48px; }
+  .grid3, .grid2 { grid-template-columns: 1fr; }
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary > div { border-left: 0; border-top: 1px solid var(--line); }
+  .summary > div:nth-child(odd) { border-right: 1px solid var(--line); }
+  .summary > div:nth-child(-n+2) { border-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
+<div class="app">
+  <aside class="side">
     <div class="brand">
-      <span class="mark" aria-hidden="true">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
-        </svg>
-      </span>
-      API Key <b>Rotator</b>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h12l-3-3M20 16H8l3 3"/></svg>
+      KeyRotator
     </div>
-    <span class="pill"><span class="dot" id="dot"></span><span id="status">connecting…</span></span>
-    <span class="pill addr" id="addr">—</span>
-    <div class="spacer"></div>
-    <button id="btn-new" class="primary">+ Provider</button>
-    <button id="btn-settings" class="ghost">Settings</button>
-    <button id="btn-refresh" class="ghost">Refresh</button>
-  </header>
+    <nav class="nav" aria-label="Main">
+      <a href="#providers" data-nav="providers">Providers <span class="count" id="nav-providers"></span></a>
+      <a href="#activity" data-nav="activity">Activity <span class="count" id="nav-activity"></span></a>
+      <a href="#settings" data-nav="settings">Settings</a>
+    </nav>
+    <div class="side-foot">
+      <span id="side-version">—</span>
+      <span class="mono" id="side-addr">—</span>
+    </div>
+  </aside>
 
-  <div id="stats" class="metrics hide"></div>
-  <section id="settings" class="card hide"></section>
-  <section id="newprovider" class="card hide"></section>
-  <div id="main"></div>
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1 id="page-title">Providers</h1>
+        <div class="sub-title" id="page-sub"></div>
+      </div>
+      <div class="grow"></div>
+      <span class="live" id="live"><span class="dot" id="dot"></span><span id="status">connecting…</span></span>
+      <button id="btn-new" class="primary" data-only="providers">+ Provider</button>
+    </header>
 
-  <section class="card">
-    <h2>Recent activity <span class="faint small" id="logcount"></span></h2>
-    <div class="log" id="logs"><div class="empty">No requests yet.</div></div>
-  </section>
+    <section data-page="providers">
+      <div class="surface summary" id="stats"></div>
+      <div id="newprovider"></div>
+      <div id="main"></div>
+    </section>
 
-  <footer class="foot" id="footer"></footer>
+    <section data-page="activity" hidden>
+      <div class="surface">
+        <div class="log-wrap" id="logs"><div class="empty">No requests yet.</div></div>
+      </div>
+    </section>
+
+    <section data-page="settings" hidden>
+      <div class="surface" id="settings-form"></div>
+    </section>
+
+    <footer class="foot" id="footer"></footer>
+  </main>
 </div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const $ = (s, r=document) => r.querySelector(s);
-let S = { providers: [], proxyBase: '', addr: '', version: '', configPath: '',
+let S = { providers: [], proxyBase: '', addr: '', listen: '', version: '', configPath: '', os: '',
           maxRetries: 3, cooldownSec: 60, adminTokenSet: false,
-          proxyToken: '', rateLimitRPS: 0, keyRateLimitRPS: 0 };
+          proxyToken: '', rateLimitRPS: 0, keyRateLimitRPS: 0,
+          autostart: { supported: false, enabled: false, mechanism: '' } };
 let LOGS = [];
 const reveal = {};
 const keyEdit = {};
 const providerEdit = {};
 const keyDraft = {};
-let settingsOpen = false, newOpen = false;
+const keyAliasDraft = {};
+let newOpen = false;
 let logSig = '';
+let page = 'providers';
+let firstLoadDone = false;
+
+const PAGES = {
+  providers: { title: 'Providers', sub: 'Pooled upstream keys, injected into every request' },
+  activity:  { title: 'Activity',  sub: 'Most recent proxied requests, newest first' },
+  settings:  { title: 'Settings',  sub: 'Behaviour, security and start-up' },
+};
 
 const token = () => localStorage.getItem('kr_token') || '';
 
@@ -260,7 +392,7 @@ function toast(msg, kind){
   el.textContent = msg;
   el.className = 'toast show' + (kind === true || kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=> el.className = 'toast', 3200);
+  toastTimer = setTimeout(() => el.className = 'toast', 3200);
 }
 
 function esc(s){
@@ -298,21 +430,46 @@ const focusedIn = (sel) => {
   return !!(el && root && root.contains(el) && ['INPUT','TEXTAREA','SELECT'].includes(el.tagName));
 };
 
+// ---------- routing ----------
+
+function showPage(name, { fromHash = false } = {}){
+  if (!PAGES[name]) name = 'providers';
+  page = name;
+  document.querySelectorAll('[data-page]').forEach(s => s.hidden = s.dataset.page !== name);
+  document.querySelectorAll('[data-nav]').forEach(a => {
+    if (a.dataset.nav === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  $('#page-title').textContent = PAGES[name].title;
+  $('#page-sub').textContent = PAGES[name].sub;
+  document.querySelectorAll('[data-only]').forEach(b => b.hidden = b.dataset.only !== name);
+  if (!fromHash && location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+  if (name === 'settings') renderSettings();
+}
+window.addEventListener('hashchange', () => showPage(location.hash.slice(1), { fromHash: true }));
+
 // ---------- data loading (never rewrites a form you are typing in) ----------
 
 async function load(){
   try {
     const [st, lg] = await Promise.all([ api('/api/state'), api('/api/logs') ]);
     S = st; LOGS = lg.logs || [];
-    $('#status').textContent = 'online · v' + S.version;
+    $('#status').textContent = 'online';
     $('#dot').className = 'dot';
-    $('#addr').textContent = S.addr;
-    $('#footer').innerHTML = 'config file: <span class="mono">' + esc(S.configPath) + '</span>' +
-      ' &nbsp;·&nbsp; proxy namespace <span class="mono">' + esc(S.proxyBase) + '&lt;provider&gt;/…</span>' +
+    $('#side-version').textContent = 'v' + S.version;
+    $('#side-addr').textContent = S.addr;
+    $('#footer').innerHTML = 'Config <span class="mono">' + esc(S.configPath) + '</span>' +
+      ' &nbsp;·&nbsp; proxy base <span class="mono">' + esc(S.proxyBase) + '&lt;provider&gt;/…</span>' +
       ' &nbsp;·&nbsp; manage from a terminal with <span class="mono">keyrotator help</span>';
     renderStats();
     updateProviders();
     updateLogs();
+    // Settings are drawn from the state, so draw them once the first load has
+    // landed. After that they only re-render on navigation or save, never on
+    // the poll, so typing in a form is never interrupted.
+    if (!firstLoadDone){
+      firstLoadDone = true;
+      if (page === 'settings') renderSettings();
+    }
   } catch(e){
     $('#status').textContent = 'offline';
     $('#dot').className = 'dot off';
@@ -329,47 +486,75 @@ function renderStats(){
     else if (k.status === 'cooldown') cool++;
     else if (k.status === 'invalid' || k.status === 'error') bad++;
   }
-  const el = $('#stats');
-  el.classList.remove('hide');
-  const cell = (cls, v, k) => '<div class="metric ' + cls + '"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>';
-  el.innerHTML =
+  $('#nav-providers').textContent = S.providers.length || '';
+  $('#nav-activity').textContent = LOGS.length || '';
+  const cell = (cls, v, label) => '<div><div class="v ' + cls + '">' + v + '</div><div class="k">' + label + '</div></div>';
+  $('#stats').innerHTML =
     cell('', S.providers.length, 'providers') +
     cell('', keys, 'keys') +
     cell('ok', ok, 'healthy') +
     cell('warn', cool, 'cooling') +
-    cell('err', bad, 'attention');
+    cell('bad', bad, 'need attention');
 }
 
-// ---------- settings ----------
+// ---------- settings page ----------
 
 function renderSettings(){
-  const el = $('#settings');
-  if (!settingsOpen){ el.classList.add('hide'); el.innerHTML = ''; return; }
-  el.classList.remove('hide');
+  const el = $('#settings-form');
   const proxySet = !!S.proxyToken;
+  const as = S.autostart || {};
+  const autoControl = as.supported
+    ? '<div class="toggle-row"><label class="switch"><input id="set-autostart" type="checkbox"' + (as.enabled ? ' checked' : '') +
+        ' aria-label="Start KeyRotator at login"><span></span></label>' +
+        '<span class="small muted">' + (as.enabled ? 'Enabled' : 'Disabled') + ' · via ' + esc(as.mechanism) + '</span></div>'
+    : '<span class="small faint">Not available on this platform yet.</span>';
+
   el.innerHTML =
-    '<h2>Settings</h2>' +
-    '<div class="grid3">' +
-      '<div><label class="lbl">Max retries per request</label><input id="set-retries" type="number" min="1" max="10" value="' + S.maxRetries + '"></div>' +
-      '<div><label class="lbl">Cooldown after errors (s)</label><input id="set-cool" type="number" min="1" value="' + S.cooldownSec + '"></div>' +
-      '<div><label class="lbl">Admin token ' + (S.adminTokenSet ? '<span class="faint">(set — blank keeps it)</span>' : '<span class="faint">(optional)</span>') + '</label>' +
-        '<input id="set-token" type="password" placeholder="' + (S.adminTokenSet ? '••••••••' : 'none') + '"></div>' +
+    '<div class="settings-group">' +
+      '<div class="setting">' +
+        '<div><h3>Start at login</h3><p>Run KeyRotator in the background when you sign in. Stored in the OS, not in the config file.</p></div>' +
+        '<div class="control">' + autoControl + '</div>' +
+      '</div>' +
+      '<div class="setting">' +
+        '<div><h3>Listen address</h3><p>Where the proxy and dashboard are served. Applies the next time KeyRotator starts.</p></div>' +
+        '<div class="control"><input id="set-listen" class="mono" value="' + esc(S.listen || S.addr) + '" spellcheck="false">' +
+          '<div class="field-note">Currently running on <span class="mono">' + esc(S.addr) + '</span>. Use <span class="mono">0.0.0.0:8787</span> only behind a proxy token.</div></div>' +
+      '</div>' +
     '</div>' +
-    '<div class="grid3" style="margin-top:12px">' +
-      '<div><label class="lbl">Proxy auth token ' + (proxySet ? '<span class="faint">(set — blank keeps it)</span>' : '<span class="faint">(optional)</span>') + '</label>' +
-        '<div style="display:flex;gap:8px">' +
-          '<input id="set-proxy-token" class="mono" placeholder="' + (proxySet ? '••••••••' : 'no auth required') + '" spellcheck="false">' +
-          '<button type="button" class="ghost" id="set-proxy-gen" title="Generate a random token">Gen</button>' +
-          (proxySet ? '<button type="button" class="ghost" id="set-proxy-clear" title="Require no token">Clear</button>' : '') +
+    '<div class="settings-group">' +
+      '<div class="setting">' +
+        '<div><h3>Retries and cooldown</h3><p>How many keys a failed request may try, and how long a failing key rests.</p></div>' +
+        '<div class="control"><div class="grid2">' +
+          '<div><label class="lbl" for="set-retries">Max retries per request</label><input id="set-retries" type="number" min="1" max="10" value="' + S.maxRetries + '"></div>' +
+          '<div><label class="lbl" for="set-cool">Cooldown after errors (s)</label><input id="set-cool" type="number" min="1" value="' + S.cooldownSec + '"></div>' +
         '</div></div>' +
-      '<div><label class="lbl">Provider rate limit (req/s)</label><input id="set-rate" type="number" min="0" step="0.1" value="' + (S.rateLimitRPS || 0) + '" placeholder="0 = unlimited"></div>' +
-      '<div><label class="lbl">Per-key rate limit (req/s)</label><input id="set-key-rate" type="number" min="0" step="0.1" value="' + (S.keyRateLimitRPS || 0) + '" placeholder="0 = unlimited"></div>' +
+      '</div>' +
+      '<div class="setting">' +
+        '<div><h3>Rate limits</h3><p>Global caps. Providers can override these. Zero means unlimited.</p></div>' +
+        '<div class="control"><div class="grid2">' +
+          '<div><label class="lbl" for="set-rate">Provider (req/s)</label><input id="set-rate" type="number" min="0" step="0.1" value="' + (S.rateLimitRPS || 0) + '"></div>' +
+          '<div><label class="lbl" for="set-key-rate">Per key (req/s)</label><input id="set-key-rate" type="number" min="0" step="0.1" value="' + (S.keyRateLimitRPS || 0) + '"></div>' +
+        '</div></div>' +
+      '</div>' +
     '</div>' +
-    '<div class="sep"></div>' +
-    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+    '<div class="settings-group">' +
+      '<div class="setting">' +
+        '<div><h3>Proxy token</h3><p>When set, every <span class="mono">/p/</span> URL must carry this token. Strongly recommended before exposing the port.</p></div>' +
+        '<div class="control">' +
+          '<div class="inline">' +
+            '<input id="set-proxy-token" class="mono" placeholder="' + (proxySet ? '•••••••• (set — leave blank to keep)' : 'no token — URLs are open') + '" spellcheck="false" autocomplete="off">' +
+            '<button type="button" class="ghost" id="set-proxy-gen">Generate</button>' +
+            (proxySet ? '<button type="button" class="ghost" id="set-proxy-clear">Clear</button>' : '') +
+          '</div></div>' +
+      '</div>' +
+      '<div class="setting">' +
+        '<div><h3>Admin token</h3><p>Protects the <span class="mono">/api</span> endpoints and this dashboard. Leave blank to keep the current value.</p></div>' +
+        '<div class="control"><input id="set-token" type="password" autocomplete="new-password" placeholder="' + (S.adminTokenSet ? '•••••••• (set)' : 'none') + '"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="savebar" style="padding:0 20px 20px">' +
       '<button class="primary" id="set-save">Save settings</button>' +
-      '<span class="faint small">With a proxy token set, every <span class="mono">/p/</span> URL must carry it. ' +
-      'Listen address <span class="mono">' + esc(S.addr) + '</span> is set at launch with <span class="mono">-listen</span>.</span>' +
+      '<span class="small faint">Start-at-login applies immediately when you flip it.</span>' +
     '</div>';
 
   let clearProxy = false;
@@ -377,14 +562,32 @@ function renderSettings(){
     const a = new Uint8Array(24);
     crypto.getRandomValues(a);
     $('#set-proxy-token').value = Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+    clearProxy = false;
     toast('Token generated — press Save settings', 'ok');
   };
   const clr = $('#set-proxy-clear');
   if (clr) clr.onclick = () => { clearProxy = true; $('#set-proxy-token').value = ''; toast('Will clear the proxy token on save'); };
 
+  const auto = $('#set-autostart');
+  if (auto) auto.onchange = async () => {
+    auto.disabled = true;
+    try {
+      await api('/api/autostart', 'POST', { enabled: auto.checked });
+      toast(auto.checked ? 'KeyRotator will start at login' : 'Start at login turned off', 'ok');
+    } catch(e){
+      auto.checked = !auto.checked;
+      toast(e.message, true);
+    } finally {
+      auto.disabled = false;
+      await load();
+      renderSettings();
+    }
+  };
+
   $('#set-save').onclick = async () => {
     try {
       const body = {
+        listen: $('#set-listen').value.trim(),
         maxRetries: +$('#set-retries').value,
         cooldownSec: +$('#set-cool').value,
         rateLimitRPS: +$('#set-rate').value || 0,
@@ -397,7 +600,8 @@ function renderSettings(){
       else if (clearProxy) body.proxyToken = '';
       await api('/api/settings', 'POST', body);
       if (t) localStorage.setItem('kr_token', t);
-      toast('Settings saved', 'ok');
+      const moved = body.listen && body.listen !== S.addr;
+      toast(moved ? 'Saved. Restart KeyRotator to use the new address.' : 'Settings saved', 'ok');
       await load(); renderSettings();
     } catch(e){ toast(e.message, true); }
   };
@@ -414,15 +618,15 @@ function ruleRowHTML(r){
     '<option value="' + v + '"' + (src === v ? ' selected' : '') + '>' + l + '</option>').join('');
   const dis = src === 'static' ? '' : ' disabled';
   return '<div class="rule' + (r.enabled === false ? ' off' : '') + '">' +
-    '<label class="tick"><input type="checkbox" data-rf="enabled"' + (r.enabled !== false ? ' checked' : '') + '></label>' +
-    '<select data-rf="in">' + inOpts + '</select>' +
-    '<input data-rf="name" placeholder="Authorization" value="' + esc(r.name) + '" spellcheck="false">' +
-    '<select data-rf="source">' + srcOpts + '</select>' +
+    '<input type="checkbox" data-rf="enabled" aria-label="Enabled"' + (r.enabled !== false ? ' checked' : '') + '>' +
+    '<select data-rf="in" aria-label="Location">' + inOpts + '</select>' +
+    '<input data-rf="name" placeholder="Authorization" value="' + esc(r.name) + '" spellcheck="false" aria-label="Field name">' +
+    '<select data-rf="source" aria-label="Source">' + srcOpts + '</select>' +
     '<input data-rf="value" placeholder="' + (src === 'static' ? 'fixed value' : '<rotating key>') + '" value="' + esc(r.value) + '"' + dis +
-      ' class="mono' + (src === 'static' ? '' : ' muted') + '" spellcheck="false">' +
-    '<input data-rf="prefix" class="mono" placeholder="—" value="' + esc(r.prefix) + '" spellcheck="false">' +
-    '<input data-rf="suffix" class="mono" placeholder="—" value="' + esc(r.suffix) + '" spellcheck="false">' +
-    '<button type="button" class="icon" data-act="del-rule" title="Remove this field">×</button>' +
+      ' class="mono' + (src === 'static' ? '' : ' muted') + '" spellcheck="false" aria-label="Fixed value">' +
+    '<input data-rf="prefix" class="mono" placeholder="prefix" value="' + esc(r.prefix) + '" spellcheck="false" aria-label="Prefix">' +
+    '<input data-rf="suffix" class="mono" placeholder="suffix" value="' + esc(r.suffix) + '" spellcheck="false" aria-label="Suffix">' +
+    '<button type="button" class="icon" data-act="del-rule" title="Remove this field" aria-label="Remove field">×</button>' +
   '</div>';
 }
 
@@ -440,31 +644,29 @@ function providerForm(p){
       '<div><label class="lbl">Base URL</label><input data-f="baseUrl" value="' + esc(p.baseUrl) + '" placeholder="https://api.openai.com/v1" spellcheck="false"></div>' +
       '<div><label class="lbl">Strategy</label><select data-f="strategy">' + strat + '</select></div>' +
     '</div>' +
-    '<div class="grid3" style="margin-top:12px">' +
+    '<div class="grid3" style="margin-top:14px">' +
       '<div><label class="lbl">Health check path</label><input data-f="healthPath" value="' + esc(p.healthPath) + '" placeholder="/models" spellcheck="false"></div>' +
-      '<div><label class="lbl">Rate limit (req/s) <span class="faint">blank = global</span></label>' +
-        '<input data-f="rateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.rateLimitRPS) + '" placeholder="inherit"></div>' +
-      '<div><label class="lbl">Per-key rate (req/s) <span class="faint">blank = global</span></label>' +
-        '<input data-f="keyRateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.keyRateLimitRPS) + '" placeholder="inherit"></div>' +
+      '<div><label class="lbl">Rate limit (req/s)</label>' +
+        '<input data-f="rateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.rateLimitRPS) + '" placeholder="inherit global"></div>' +
+      '<div><label class="lbl">Per-key rate (req/s)</label>' +
+        '<input data-f="keyRateLimitRPS" type="number" min="0" step="0.1" value="' + rateVal(p.keyRateLimitRPS) + '" placeholder="inherit global"></div>' +
     '</div>' +
-    '<div class="grid2" style="margin-top:12px">' +
-      '<div><label class="lbl">Proxy token <span class="faint">blank = use the global token</span></label>' +
-        '<input data-f="proxyToken" class="mono" value="' + esc(p.proxyToken || '') + '" placeholder="none" spellcheck="false"></div>' +
-      '<div><label class="lbl">Rotation scope</label><input value="keys rotate on every in-flight request" disabled></div>' +
+    '<div class="grid2" style="margin-top:14px">' +
+      '<div><label class="lbl">Proxy token</label>' +
+        '<input data-f="proxyToken" class="mono" value="' + esc(p.proxyToken || '') + '" placeholder="blank = use the global token" spellcheck="false"></div>' +
+      '<div><label class="lbl">Rotation</label><input value="every request takes the next eligible key" disabled></div>' +
     '</div>' +
-    '<div class="sub">' +
-      '<label class="lbl">Request fields &mdash; applied live, on every request</label>' +
-      '<div class="rules-scroll"><div class="rules-grid">' +
-        '<div class="rules-head"><span></span><span>in</span><span>field name</span><span>source</span><span>value</span><span>prefix</span><span>suffix</span><span></span></div>' +
-        '<div data-rules>' + rules.map(ruleRowHTML).join('') + '</div>' +
-      '</div></div>' +
-      '<div style="margin-top:10px"><button type="button" class="tiny" data-act="add-rule">+ Add field</button></div>' +
-      '<div class="hint">Each field can <b>rotate the seeded key</b> or send a <b>fixed value</b>. ' +
-      'The written value is <code>prefix + value + suffix</code> — affixes keep their exact spacing, so ' +
-      '<code>Bearer&nbsp;</code> must keep its trailing space.<br>' +
-      'Examples: <code>header · Authorization · rotating key · prefix "Bearer "</code> &nbsp;·&nbsp; ' +
-      '<code>query · api_key · rotating key</code> &nbsp;·&nbsp; <code>header · x-api-version · fixed value</code>.</div>' +
-    '</div>';
+    '<div class="sep"></div>' +
+    '<label class="lbl">Request fields — applied live, on every request</label>' +
+    '<div class="rules-scroll"><div class="rules-grid">' +
+      '<div class="rules-head"><span></span><span>in</span><span>name</span><span>source</span><span>fixed value</span><span>prefix</span><span>suffix</span><span></span></div>' +
+      '<div data-rules>' + rules.map(ruleRowHTML).join('') + '</div>' +
+    '</div></div>' +
+    '<div style="margin-top:10px"><button type="button" class="ghost sm" data-act="add-rule">+ Add field</button></div>' +
+    '<div class="hint">Each field either <b>rotates the pooled key</b> or sends a <b>fixed value</b>. ' +
+    'The value written is <code>prefix + value + suffix</code>; spaces in affixes are kept, so <code>Bearer&nbsp;</code> keeps its trailing space.<br>' +
+    'Examples: <code>header · Authorization · rotating key · prefix "Bearer "</code> &nbsp;·&nbsp; ' +
+    '<code>query · api_key · rotating key</code> &nbsp;·&nbsp; <code>header · x-api-version · fixed value</code>.</div>';
 }
 
 function readForm(root){
@@ -508,12 +710,12 @@ function syncSource(row){
 
 function renderNew(){
   const el = $('#newprovider');
-  if (!newOpen){ el.classList.add('hide'); el.innerHTML = ''; return; }
-  el.classList.remove('hide');
-  el.innerHTML = '<h2>New provider</h2>' + providerForm() +
-    '<div class="sep"></div>' +
-    '<div style="display:flex;gap:8px"><button class="primary" id="np-save">Create provider</button>' +
-    '<button class="ghost" id="np-cancel">Cancel</button></div>';
+  if (!newOpen){ el.innerHTML = ''; return; }
+  el.innerHTML = '<section class="surface provider"><div class="p-head"><span class="p-name">New provider</span></div>' +
+    '<div class="panel">' + providerForm() + '</div>' +
+    '<div class="keybar" style="background:none;border-top:0;justify-content:flex-end">' +
+      '<button class="ghost" id="np-cancel">Cancel</button>' +
+      '<button class="primary" id="np-save">Create provider</button></div></section>';
   $('#np-save').onclick = async () => {
     const body = readForm(el);
     if (!body.baseUrl){ toast('Base URL is required', true); return; }
@@ -528,13 +730,17 @@ function renderNew(){
 function renderMain(){
   const el = $('#main');
   if (!S.providers.length){
-    el.innerHTML = '<div class="card"><div class="empty"><div class="big">No providers yet</div>' +
-      'Add one to start rotating keys across your requests. Backed by <span class="mono">' + esc(S.configPath) + '</span>.</div></div>';
+    el.innerHTML = '<div class="surface"><div class="empty"><div class="big">No providers yet</div>' +
+      'Add one to start rotating keys. Config is saved to <span class="mono">' + esc(S.configPath) + '</span>.<br><br>' +
+      '<button class="primary" data-act="open-new">+ Add your first provider</button></div></div>';
     return;
   }
   el.innerHTML = S.providers.map(providerCard).join('');
   document.querySelectorAll('#main [data-act="key-value"]').forEach(inp => {
     inp.oninput = () => { keyDraft[inp.dataset.id] = inp.value; };
+  });
+  document.querySelectorAll('#main [data-act="key-alias"]').forEach(inp => {
+    inp.oninput = () => { keyAliasDraft[inp.dataset.id] = inp.value; };
   });
   document.querySelectorAll('#main [data-kid] [data-kf]').forEach(inp => {
     const kid = inp.closest('[data-kid]').dataset.kid;
@@ -598,48 +804,46 @@ function providerCard(p){
   const keys = p.keys || [];
   const rows = keys.map(k => keyRow(p, k)).join('');
   const table = keys.length
-    ? '<div class="tbl-wrap"><table><thead><tr><th>Label</th><th>Key</th><th>Status</th><th>OK</th><th>Err</th><th>Last used</th><th></th></tr></thead>' +
+    ? '<div class="tbl-wrap"><table><thead><tr><th>Alias</th><th>Key</th><th>Status</th><th class="num">OK</th><th class="num">Errors</th><th>Last used</th><th></th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>'
-    : '<div class="empty" style="padding:16px">No keys yet — paste one below to start rotating.</div>';
+    : '<div class="empty compact">No keys yet — paste one below to start rotating.</div>';
 
   const editBlock = editing
-    ? '<div class="sub">' + providerForm(p) +
+    ? '<div class="panel">' + providerForm(p) +
       '<div class="sep"></div>' +
-      '<div style="display:flex;gap:8px"><button class="primary tiny" data-act="save-provider" data-id="' + p.id + '">Save changes</button>' +
-      '<button class="tiny ghost" data-act="cancel-provider" data-id="' + p.id + '">Cancel</button></div></div>'
+      '<div class="inline"><button class="primary sm" data-act="save-provider" data-id="' + p.id + '">Save changes</button>' +
+      '<button class="ghost sm" data-act="cancel-provider" data-id="' + p.id + '">Cancel</button></div></div>'
     : '';
 
   const draft = keyDraft[p.id] || '';
   const addKey = '<div class="keybar">' +
-      '<input data-act="key-value" data-id="' + p.id + '" placeholder="Paste API key (sk-…)" value="' + esc(draft) + '" spellcheck="false" autocomplete="off">' +
-      '<button class="primary tiny" data-act="add-key" data-id="' + p.id + '">Add key</button>' +
-      '<button class="tiny ghost" data-act="test-provider" data-id="' + p.id + '">Test all</button></div>';
+      '<input data-act="key-value" data-id="' + p.id + '" placeholder="Paste an API key" value="' + esc(draft) + '" spellcheck="false" autocomplete="off" class="mono" aria-label="New API key">' +
+      '<input data-act="key-alias" data-id="' + p.id + '" class="alias" placeholder="Alias (optional)" value="' + esc(keyAliasDraft[p.id] || '') + '" spellcheck="false" autocomplete="off" aria-label="Alias for the new key">' +
+      '<button class="primary sm" data-act="add-key" data-id="' + p.id + '">Add key</button>' +
+      '<button class="ghost sm" data-act="test-provider" data-id="' + p.id + '">Test all</button></div>';
 
-  return '<article class="card provider" data-card="' + p.id + '">' +
+  return '<article class="surface provider" data-card="' + p.id + '">' +
     '<div class="p-head">' +
       '<span class="p-name">' + esc(p.name) + '</span>' +
       '<span class="badge ' + (p.enabled ? 'b-ok' : 'b-off') + '" data-p="badge">' + (p.enabled ? 'enabled' : 'disabled') + '</span>' +
-      '<span class="tag">' + esc(p.strategy) + '</span>' +
-      '<span class="tag">health ' + esc(p.healthPath) + '</span>' +
-      '<div class="spacer"></div>' +
       '<span class="p-actions">' +
-        '<button class="tiny ghost" data-act="toggle-provider" data-id="' + p.id + '">' + (p.enabled ? 'Disable' : 'Enable') + '</button>' +
-        '<button class="tiny ghost" data-act="edit-provider" data-id="' + p.id + '">' + (editing ? 'Close' : 'Edit') + '</button>' +
-        '<button class="tiny danger" data-act="del-provider" data-id="' + p.id + '" data-name="' + esc(p.name) + '">Delete</button>' +
+        '<button class="ghost sm" data-act="toggle-provider" data-id="' + p.id + '">' + (p.enabled ? 'Disable' : 'Enable') + '</button>' +
+        '<button class="ghost sm" data-act="edit-provider" data-id="' + p.id + '">' + (editing ? 'Close' : 'Edit') + '</button>' +
+        '<button class="ghost sm danger" data-act="del-provider" data-id="' + p.id + '" data-name="' + esc(p.name) + '">Delete</button>' +
       '</span>' +
     '</div>' +
-    '<div class="meta">' +
-      '<span class="faint small">upstream</span>' +
+    '<div class="p-meta">' +
       '<span class="mono small muted">' + esc(p.baseUrl) + '</span>' +
+      '<span class="tag">' + esc(p.strategy) + '</span>' +
+      '<span class="tag">health ' + esc(p.healthPath) + '</span>' +
       (token ? '<span class="tag" title="Requests must carry the proxy token">secured</span>' : '') +
       (provRPS > 0 ? '<span class="tag" title="Provider-wide rate limit">' + rpsText(provRPS) + ' req/s</span>' : '') +
-      (keyRPS > 0 ? '<span class="tag" title="Per-key rate limit">' + rpsText(keyRPS) + ' req/s/key</span>' : '') +
+      (keyRPS > 0 ? '<span class="tag" title="Per-key rate limit">' + rpsText(keyRPS) + ' req/s per key</span>' : '') +
     '</div>' +
     '<div class="fields">' + ruleChips(p) + '</div>' +
     '<div class="proxy"><code>' + esc(proxy) + '</code>' +
-      '<button class="tiny ghost" data-act="copy" data-copy="' + esc(proxy) + '">Copy</button></div>' +
-    (token ? '<div class="faint small" style="margin-top:6px">Requests must carry this token in the path, or send an ' +
-      '<span class="mono">X-Rotator-Token</span> / <span class="mono">Authorization: Bearer</span> header, or <span class="mono">?token=</span>.</div>' : '') +
+      '<button class="ghost sm" data-act="copy" data-copy="' + esc(proxy) + '">Copy URL</button></div>' +
+    (token ? '<div class="faint small" style="padding:8px 18px 0">Send the token in the path, an <span class="mono">X-Rotator-Token</span> or <span class="mono">Authorization: Bearer</span> header, or <span class="mono">?token=</span>.</div>' : '') +
     editBlock + table + addKey +
     '</article>';
 }
@@ -649,28 +853,28 @@ function keyRow(p, k){
   if (editing){
     const d = keyEdit[k.id];
     return '<tr data-kid="' + k.id + '">' +
-      '<td colspan="7"><div style="display:flex;gap:8px;flex-wrap:wrap">' +
-        '<input data-kf="label" value="' + esc(d.label) + '" placeholder="label" style="max-width:170px">' +
-        '<input data-kf="value" value="' + esc(d.value) + '" placeholder="value" style="flex:1;min-width:200px" spellcheck="false">' +
-        '<button class="primary tiny" data-act="save-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Save</button>' +
-        '<button class="tiny ghost" data-act="cancel-key" data-kid="' + k.id + '">Cancel</button>' +
+      '<td colspan="7"><div class="inline" style="flex-wrap:wrap">' +
+        '<input data-kf="label" value="' + esc(d.label) + '" placeholder="label" style="max-width:180px" aria-label="Key label">' +
+        '<input data-kf="value" class="mono" value="' + esc(d.value) + '" placeholder="value" style="flex:1;min-width:220px" spellcheck="false" aria-label="Key value">' +
+        '<button class="primary sm" data-act="save-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Save</button>' +
+        '<button class="ghost sm" data-act="cancel-key" data-kid="' + k.id + '">Cancel</button>' +
       '</div></td></tr>';
   }
   const shown = reveal[k.id] ? k.value : (k.value ? k.value.slice(0,4) + '…' + k.value.slice(-4) : '');
   return '<tr data-kid="' + k.id + '">' +
     '<td>' + esc(k.label || '—') + '</td>' +
     '<td><span class="kval mono">' + esc(shown) + '</span> ' +
-      '<button class="tiny ghost" data-act="reveal" data-kid="' + k.id + '">' + (reveal[k.id] ? 'hide' : 'show') + '</button></td>' +
+      '<button class="ghost sm" data-act="reveal" data-kid="' + k.id + '">' + (reveal[k.id] ? 'hide' : 'show') + '</button></td>' +
     '<td><span data-k="status">' + statusBadge(k) + '</span></td>' +
     '<td class="num" data-k="ok">' + (k.success || 0) + '</td>' +
     '<td class="num" data-k="err">' + (k.errors || 0) + '</td>' +
-    '<td class="num muted" data-k="used">' + rel(k.lastUsed) + '</td>' +
+    '<td class="muted" data-k="used">' + rel(k.lastUsed) + '</td>' +
     '<td class="right">' +
-      '<button class="tiny ghost" data-act="toggle-key" data-pid="' + p.id + '" data-kid="' + k.id + '">' + (k.enabled ? 'disable' : 'enable') + '</button> ' +
-      '<button class="tiny ghost" data-act="test-key" data-pid="' + p.id + '" data-kid="' + k.id + '">test</button> ' +
-      '<button class="tiny ghost" data-act="edit-key" data-pid="' + p.id + '" data-kid="' + k.id + '">edit</button> ' +
-      '<button class="tiny ghost" data-act="reset-key" data-pid="' + p.id + '" data-kid="' + k.id + '">reset</button> ' +
-      '<button class="icon" data-act="del-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Delete key">×</button>' +
+      '<button class="ghost" data-act="test-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Test</button>' +
+      '<button class="ghost" data-act="toggle-key" data-pid="' + p.id + '" data-kid="' + k.id + '">' + (k.enabled ? 'Disable' : 'Enable') + '</button>' +
+      '<button class="ghost" data-act="edit-key" data-pid="' + p.id + '" data-kid="' + k.id + '">Edit</button>' +
+      '<button class="ghost" data-act="reset-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Clear cooldown and error state">Reset</button>' +
+      '<button class="icon" data-act="del-key" data-pid="' + p.id + '" data-kid="' + k.id + '" title="Delete key" aria-label="Delete key">×</button>' +
     '</td></tr>';
 }
 
@@ -678,23 +882,22 @@ function keyRow(p, k){
 
 function updateLogs(){
   const sig = LOGS.length + '|' + (LOGS[0] ? LOGS[0].time + '|' + LOGS[0].code + '|' + LOGS[0].path : '');
-  $('#logcount').textContent = LOGS.length ? '(' + LOGS.length + ')' : '';
   if (sig === logSig) return;
   logSig = sig;
   const el = $('#logs');
-  if (!LOGS.length){ el.innerHTML = '<div class="empty">No requests yet — send one through a proxy URL to see it here.</div>'; return; }
+  if (!LOGS.length){ el.innerHTML = '<div class="empty">No requests yet — send one through a proxy URL and it will appear here.</div>'; return; }
   const rows = LOGS.map(l => {
     const t = new Date(l.time * 1000).toLocaleTimeString();
     const key = l.key ? esc(l.key) : '<span class="faint">—</span>';
     return '<tr><td class="faint">' + t + '</td>' +
-      '<td><span class="badge ' + (l.ok ? 'b-ok' : 'b-bad') + '">' + l.code + '</span></td>' +
+      '<td><span class="badge badge-code ' + (l.ok ? 'b-ok' : 'b-bad') + '">' + l.code + '</span></td>' +
       '<td class="mono">' + esc(l.method) + ' ' + esc(l.path) + '</td>' +
       '<td>' + esc(l.provider) + '</td>' +
       '<td class="mono">' + key + '</td>' +
-      '<td class="num">' + l.ms + 'ms</td>' +
+      '<td class="num">' + l.ms + ' ms</td>' +
       '<td class="faint">' + esc(l.msg || '') + '</td></tr>';
   }).join('');
-  el.innerHTML = '<table><thead><tr><th>Time</th><th>Code</th><th>Request</th><th>Provider</th><th>Key</th><th>Latency</th><th>Note</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  el.innerHTML = '<table><thead><tr><th>Time</th><th>Status</th><th>Request</th><th>Provider</th><th>Key</th><th class="num">Latency</th><th>Note</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 // ---------- events ----------
@@ -717,9 +920,10 @@ document.addEventListener('click', async (ev) => {
   };
   try {
     switch (a){
+      case 'open-new':
+        newOpen = true; renderNew(); $('#newprovider').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
       case 'add-rule': {
-        const wrap = btn.parentElement.querySelector('[data-rules]') ||
-                     btn.closest('.sub').querySelector('[data-rules]');
+        const wrap = btn.closest('.panel').querySelector('[data-rules]');
         if (wrap) wrap.insertAdjacentHTML('beforeend', ruleRowHTML());
         break;
       }
@@ -745,7 +949,7 @@ document.addEventListener('click', async (ev) => {
       case 'cancel-provider':
         delete providerEdit[pid]; renderMain(); break;
       case 'save-provider': {
-        const card = btn.closest('.sub');
+        const card = btn.closest('.panel');
         const body = readForm(card);
         if (!body.baseUrl){ toast('Base URL is required', true); return; }
         await api('/api/providers/' + pid, 'PUT', body);
@@ -755,7 +959,7 @@ document.addEventListener('click', async (ev) => {
         if (!confirm('Delete provider "' + btn.dataset.name + '" and all its keys?')) return;
         await api('/api/providers/' + pid, 'DELETE'); toast('Provider deleted', 'ok'); await load(); renderMain(); break;
       case 'test-provider': {
-        btn.textContent = 'testing…'; btn.disabled = true;
+        btn.textContent = 'Testing…'; btn.disabled = true;
         const r = await api('/api/providers/' + pid + '/test', 'POST');
         const bad = (r.results || []).filter(x => !x.ok).length;
         toast(bad ? (bad + ' key(s) failed') : 'All keys OK', bad > 0 ? true : 'ok');
@@ -764,8 +968,11 @@ document.addEventListener('click', async (ev) => {
       case 'add-key': {
         const val = (keyDraft[pid] || '').trim();
         if (!val){ toast('Paste a key first', true); return; }
-        await api('/api/providers/' + pid + '/keys', 'POST', { value: val });
-        keyDraft[pid] = ''; toast('Key added', 'ok'); await load(); renderMain(); break;
+        const alias = (keyAliasDraft[pid] || '').trim();
+        await api('/api/providers/' + pid + '/keys', 'POST', { value: val, label: alias });
+        keyDraft[pid] = ''; keyAliasDraft[pid] = '';
+        toast(alias ? 'Key added as "' + alias + '"' : 'Key added', 'ok');
+        await load(); renderMain(); break;
       }
       case 'del-key':
         await api('/api/providers/' + pid + '/keys/' + kid, 'DELETE'); await load(); renderMain(); break;
@@ -804,14 +1011,9 @@ document.addEventListener('click', async (ev) => {
   } catch(e){ toast(e.message, true); }
 });
 
-$('#btn-refresh').onclick = () => load();
-$('#btn-settings').onclick = () => {
-  settingsOpen = !settingsOpen;
-  renderSettings();
-  $('#btn-settings').textContent = settingsOpen ? 'Hide settings' : 'Settings';
-};
-$('#btn-new').onclick = () => { newOpen = !newOpen; renderNew(); };
+$('#btn-new').onclick = () => { newOpen = !newOpen; renderNew(); if (newOpen) $('#newprovider').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
+showPage(location.hash.slice(1));
 load();
 setInterval(load, 3000);   // patches live values only; never re-renders forms
 </script>

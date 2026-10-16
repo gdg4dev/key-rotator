@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ type App struct {
 	testClient *http.Client
 	listen     string
 	limits     *limiter
+	metrics    *metrics
 
 	mu     sync.Mutex
 	actual string
@@ -48,10 +50,11 @@ func NewApp(configPath, listenOverride string) (*App, error) {
 		IdleConnTimeout:       90 * time.Second,
 	}
 	return &App{
-		store:  store,
-		logs:   &LogBuffer{max: 500},
-		limits: newLimiter(),
-		listen: addr,
+		store:   store,
+		logs:    &LogBuffer{max: 500},
+		limits:  newLimiter(),
+		metrics: newMetrics(),
+		listen:  addr,
 		client: &http.Client{
 			Transport: transport,
 			// Return upstream redirects to the caller instead of following them.
@@ -74,6 +77,9 @@ func (a *App) Run(stop <-chan struct{}) error {
 		return fmt.Errorf("listen %s: %w", a.listen, err)
 	}
 	a.setActual(ln.Addr().String())
+	if exposedWithoutAuth(ln.Addr().String(), a.store.Settings()) {
+		log.Printf("WARNING: listening on %s with no proxy or admin token. Anyone who can reach this port can use your API keys. Set a token in Settings first.", ln.Addr())
+	}
 
 	srv := &http.Server{
 		Handler:           mux,
@@ -110,8 +116,28 @@ func (a *App) Run(stop <-chan struct{}) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(ctx)
+		// Persist anything changed since the last periodic save.
+		if err := a.store.Save(); err != nil {
+			log.Printf("save config on shutdown: %v", err)
+		}
 		return nil
 	}
+}
+
+// exposedWithoutAuth reports whether the server is reachable from other
+// machines while neither a proxy token nor an admin token protects it.
+func exposedWithoutAuth(addr string, st Settings) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return false
+	}
+	return st.ProxyToken == "" && st.AdminToken == ""
 }
 
 func (a *App) setActual(addr string) {
@@ -194,8 +220,19 @@ func (l *LogBuffer) List() []LogEntry {
 	return out
 }
 
+// openBrowser opens url in the default browser. It is best effort: if no
+// opener is available the URL is still printed in the startup banner.
 func openBrowser(url string) {
-	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }
 
 // sweeper re-tests cooled-down and invalid keys in the background.

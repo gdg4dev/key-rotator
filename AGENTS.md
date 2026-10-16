@@ -29,8 +29,13 @@ a Windows service.
 | `scripts/build.ps1` | Builds `bin\keyrotator.exe` |
 | `scripts/update.ps1` | Stops the running instance, rebuilds, restarts it |
 
-Config lives at `%APPDATA%\KeyRotator\config.json` by default (override with
-`-config`). It is never part of the repo.
+Config lives in the OS user config directory by default: `%APPDATA%\KeyRotator\config.json`
+on Windows, `~/Library/Application Support/KeyRotator/config.json` on macOS, and
+`$XDG_CONFIG_HOME/KeyRotator/config.json` on Linux. Override with `-config`. It is never part of the repo.
+
+Additional files since the first version: `alias.go` (key names and uniqueness), `tui.go` (terminal
+UI, a client of the admin API), `metrics.go` (Prometheus endpoint), `autostart*.go` (start-at-login per
+OS), `Dockerfile`, and `scripts/*.sh` for macOS and Linux.
 
 ## Commands
 
@@ -46,7 +51,10 @@ be on `PATH`; `scripts/build.ps1` handles that.
 
 ## Conventions
 
-- **Standard library only.** Do not add third-party modules without asking.
+- **Minimal dependencies.** The server uses only the standard library. The TUI uses
+  Bubble Tea and Lip Gloss. Ask before adding any other module.
+- **Cross-platform.** Keep the code building on Windows, macOS and Linux. Check with
+  `GOOS=darwin go vet ./...` and `GOOS=linux go vet ./...` after platform-specific changes.
 - **Keep it one binary.** New UI assets go under `cmd/keyrotator/web/` and are
   embedded; do not read them from disk at runtime.
 - **Never expose raw keys.** Use `Key.Masked()` for anything displayed or logged.
