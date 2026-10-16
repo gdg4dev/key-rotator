@@ -13,7 +13,10 @@ cooling down, a cooling key is used rather than failing. On a retryable response
 keys it used and picks again, up to `maxRetries` times:
 
 - `401` / `403` → key marked **invalid** (needs a manual reset or a passing health check)
-- `429` / `5xx` / network error → key enters **cooldown** (`Retry-After` respected)
+- `429` / `5xx` → key enters **cooldown** (`Retry-After` respected)
+- no answer at all (the API is down, the address is wrong, or it timed out) → the request is
+  retried, but the keys are not marked, since the problem is not theirs. If no attempt gets an
+  answer, the client gets a `502` saying the API could not be reached
 - anything else (including `400`) → key marked **ok**; the response passes straight through
 
 Request and response bodies are streamed, so SSE/streaming completions work unchanged.

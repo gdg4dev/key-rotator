@@ -282,7 +282,7 @@ func (a *App) probe(p *Provider, k *Key) (int, string) {
 	applyInjection(p, p.probeFinder(k), req)
 	resp, err := a.testClient.Do(req)
 	if err != nil {
-		return 0, err.Error()
+		return 0, "could not reach " + base + ": " + transportError(err)
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 8192))
@@ -308,7 +308,9 @@ func (a *App) testAndRecord(p *Provider, k *Key) (int, string) {
 		p.mu.Unlock()
 		return code, msg
 	}
-	if code == 429 || code >= 500 || code == 0 {
+	// code 0 means the API never answered, which says nothing about the key,
+	// so its state is left alone.
+	if code == 429 || code >= 500 {
 		p.mu.Lock()
 		k.Status = statusCooldown
 		if k.CooldownUntil <= time.Now().Unix() {

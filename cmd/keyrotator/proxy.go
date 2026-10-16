@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -109,6 +111,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	var resp *http.Response
 	var used []*Key
 	var lastErr string
+	unreachable := false // the last attempt never got an answer from the API
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		keys, throttled := p.PickKeys(pin, func(k *Key) bool {
@@ -148,8 +151,9 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 
 		resp, err = a.client.Do(req)
 		if err != nil {
-			p.markFailAll(keys, 0, err.Error(), cooldown)
-			lastErr = err.Error()
+			// No answer at all (API down, wrong address, timeout). That says
+			// nothing about the keys, so they are not marked.
+			lastErr, unreachable = transportError(err), true
 			a.metrics.retry(pid)
 			resp = nil
 			continue
@@ -162,7 +166,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 				snippet := peek(resp.Body)
 				resp.Body.Close()
 				p.markFailAll(keys, code, snippet, wait)
-				lastErr = fmt.Sprintf("%d %s", code, snippet)
+				lastErr, unreachable = fmt.Sprintf("%d %s", code, snippet), false
 				a.metrics.retry(pid)
 				resp = nil
 				continue
@@ -182,13 +186,17 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 	elapsed := time.Since(start).Milliseconds()
 
 	if resp == nil {
+		msg := "all keys failed: " + lastErr
+		if unreachable {
+			msg = "could not reach " + base + ": " + lastErr
+		}
 		a.metrics.request(pid, http.StatusBadGateway, time.Since(started))
 		a.logs.Add(LogEntry{
 			Time: time.Now().Unix(), Provider: pid, Key: "", Method: r.Method,
 			Path: "/" + sub, Code: http.StatusBadGateway, OK: false, Ms: elapsed,
-			Msg: "all keys failed: " + lastErr,
+			Msg: msg,
 		})
-		writeErr(w, http.StatusBadGateway, "all keys failed: "+lastErr)
+		writeErr(w, http.StatusBadGateway, msg)
 		return
 	}
 	defer resp.Body.Close()
@@ -221,6 +229,17 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 		Path: "/" + sub, Code: resp.StatusCode, OK: resp.StatusCode < 400,
 		Ms: elapsed, Msg: http.StatusText(resp.StatusCode),
 	})
+}
+
+// transportError describes a failed call to the API without its URL. The URL
+// can carry a key in its query string, and this text reaches the client, the
+// Activity log and the dashboard.
+func transportError(err error) string {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		err = ue.Err
+	}
+	return err.Error()
 }
 
 func readBody(r *http.Request) ([]byte, error) {

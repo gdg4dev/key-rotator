@@ -547,8 +547,9 @@ tr:last-child td { border-bottom: 0; }
           <table class="guide-table">
             <thead><tr><th>The API answers</th><th>KeyRotator</th></tr></thead>
             <tbody>
-              <tr><td><code>429</code>, any <code>5xx</code>, or no answer</td><td>The key <b>rests</b> (shown as Resting) for the time the API asks for in <code>Retry-After</code>, or for the cooldown in Settings, 60 seconds by default. The request is retried with another key.</td></tr>
+              <tr><td><code>429</code> or any <code>5xx</code></td><td>The key <b>rests</b> (shown as Resting) for the time the API asks for in <code>Retry-After</code>, or for the cooldown in Settings, 60 seconds by default. The request is retried with another key.</td></tr>
               <tr><td><code>401</code> or <code>403</code></td><td>The key is marked <b>Rejected</b> and set aside. The request is retried with another key.</td></tr>
+              <tr><td>no answer at all: the API is down, the address is wrong, or it timed out</td><td>The request is retried, but no key is marked: the problem is not the key's. If nothing answers, your code gets a <code>502</code> saying the API could not be reached. Check the provider's Base URL.</td></tr>
               <tr><td>anything else, including <code>400</code></td><td>The answer goes straight back to your code. The key stays healthy.</td></tr>
             </tbody>
           </table>

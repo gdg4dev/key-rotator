@@ -60,3 +60,57 @@ func TestProxyFailoverAndMetrics(t *testing.T) {
 		}
 	}
 }
+
+// TestUnreachableAPIHidesKeysAndSparesThem points a provider at an address
+// where nothing listens, with the key in the URL query. The client must get a
+// 502 that names the API but never the key, and no key may be marked as
+// failing: the API being down is not the keys' fault.
+func TestUnreachableAPIHidesKeysAndSparesThem(t *testing.T) {
+	down := httptest.NewServer(http.NotFoundHandler())
+	base := down.URL
+	down.Close() // nothing listens here any more
+
+	app, err := NewApp(filepath.Join(t.TempDir(), "config.json"), "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := []*Key{
+		{ID: "k1", Label: "a", Value: "secret-key-one", Enabled: true, Status: statusOK},
+		{ID: "k2", Label: "b", Value: "secret-key-two", Enabled: true, Status: statusOK},
+	}
+	app.store.AddProvider(&Provider{
+		ID: "p1", Name: "test", BaseURL: base, Enabled: true, Strategy: "round_robin",
+		Inject: []InjectRule{{Enabled: true, In: "query", Name: "api_key", Source: "key"}},
+		Keys:   keys,
+	})
+
+	rec := httptest.NewRecorder()
+	app.handleProxy(rec, httptest.NewRequest(http.MethodGet, "/p/p1/search?q=x", nil))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "could not reach "+base) {
+		t.Errorf("error should name the API: %s", body)
+	}
+	if strings.Contains(body, "secret-key") {
+		t.Fatalf("error leaked a key: %s", body)
+	}
+	for _, l := range app.logs.snapshot() {
+		if strings.Contains(l.Msg, "secret-key") {
+			t.Fatalf("activity log leaked a key: %s", l.Msg)
+		}
+	}
+	for _, k := range keys {
+		if k.Status != statusOK || k.CooldownUntil != 0 || k.LastError != "" {
+			t.Errorf("key %s was marked: status=%s cooldown=%d error=%q", k.Label, k.Status, k.CooldownUntil, k.LastError)
+		}
+	}
+
+	// The health check must not mark the key or show its value either.
+	p := app.store.Provider("p1")
+	code, msg := app.testAndRecord(p, keys[0])
+	if code != 0 || strings.Contains(msg, "secret-key") || keys[0].Status != statusOK {
+		t.Errorf("health check: code=%d msg=%q status=%s", code, msg, keys[0].Status)
+	}
+}
