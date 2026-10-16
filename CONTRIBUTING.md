@@ -12,8 +12,7 @@ feature ideas are all welcome.
   `keyrotator.exe` (the UI is embedded with `go:embed`).
 - **Never log or return raw API keys.** Use the masked form for anything shown
   in the UI, logs, or CLI output.
-- **Windows-specific code** lives in `*_windows.go` files behind build tags, with
-  a non-Windows counterpart, so the project keeps building on Linux and macOS.
+- **OS-specific code lives in `platform_<os>.go`.** See "Supporting every platform" below.
 
 ## Getting set up
 
@@ -29,10 +28,51 @@ feature ideas are all welcome.
 3. Build locally with `scripts\build.ps1` on Windows or `scripts/build.sh` on macOS and
    Linux. Both write to `bin/`.
 
-Please keep the code working on all three platforms. Windows-only code belongs in
-`*_windows.go` files, macOS-only code in `*_darwin.go`, and Linux-only code in `*_linux.go`,
-with a fallback for other platforms. Run `GOOS=darwin go vet ./...` and
-`GOOS=windows go vet ./...` before you open a pull request if you touched platform code.
+## Supporting every platform
+
+KeyRotator runs on Windows, macOS, Linux and the BSDs. Everything that differs between them lives in
+one file per OS, and each file implements the same few hooks, listed at the top of
+`cmd/keyrotator/platform.go`:
+
+| File | Used on |
+| --- | --- |
+| `platform_windows.go` | Windows |
+| `platform_darwin.go` | macOS |
+| `platform_linux.go` | Linux |
+| `platform_other.go` | other Unix systems (FreeBSD, OpenBSD, ...) |
+| `platform_unix.go` | every Unix system, including macOS and Linux |
+
+To add OS-specific behaviour, add a hook to the list in `platform.go` and implement it in each file.
+Never branch on `runtime.GOOS` elsewhere. Before opening a pull request that touches platform code,
+check that every target still builds:
+
+```sh
+for os in windows linux darwin freebsd; do GOOS=$os go vet ./...; done
+```
+
+## Finding your way around
+
+```
+cmd/keyrotator/
+  main.go         entrypoint and flags; `keyrotator <command>` goes to cli.go
+  app.go          wiring, HTTP server, request log, health checks, shutdown
+  proxy.go        the /p/... proxy: auth, rate limits, retries and failover
+  rotator.go      choosing a key, writing it into the request, field groups
+  limits.go       token-bucket rate limiter
+  config.go       config model, loading, migration, atomic saves
+  alias.go        key aliases ("key 1", "billing") and their uniqueness
+  api.go          the admin JSON API; serves the embedded dashboard
+  web/ui.html     the dashboard, a single file embedded into the binary
+  cli.go          the management CLI
+  tui.go          the terminal UI, a client of the admin API
+  daemon.go       start / stop / status for background mode
+  metrics.go      Prometheus endpoint
+  platform*.go    OS-specific hooks (see above)
+  service_*.go    Windows service, with a stub elsewhere
+  *_test.go       tests
+docs/             user guides linked from the README
+scripts/          build and update scripts for each OS
+```
 
 ## Making a change
 
@@ -42,7 +82,7 @@ with a fallback for other platforms. Run `GOOS=darwin go vet ./...` and
 3. Keep the change focused. Add or update tests in `cmd/keyrotator/*_test.go`
    for logic changes (selection, injection, rate limiting, config handling).
 4. Make sure `go vet`, `go test`, and `gofmt` are clean. CI runs the same checks.
-5. Update `README.md` if you change behaviour, flags, endpoints, or file layout.
+5. Update `README.md` or the guide in `docs/` if you change behaviour, flags, endpoints, or file layout.
 6. Open a pull request describing **what** changed and **why**.
 
 ## Commit messages

@@ -27,6 +27,10 @@ jobs:
         if: runner.os != 'Windows'
         run: test -z "$(gofmt -l .)"
 
+      - name: Build for every platform
+        if: runner.os == 'Linux'
+        run: for os in windows linux darwin freebsd; do GOOS=$os go vet ./... || exit 1; done
+
       - name: Vet
         run: go vet ./...
 

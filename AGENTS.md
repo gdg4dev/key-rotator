@@ -16,26 +16,27 @@ a Windows service.
 | Path | Purpose |
 | --- | --- |
 | `cmd/keyrotator/main.go` | Entrypoint, flags, mode dispatch |
-| `cmd/keyrotator/app.go` | Wiring, HTTP server, request log, health sweeper |
-| `cmd/keyrotator/config.go` | Config model, atomic persistence, migration |
-| `cmd/keyrotator/rotator.go` | Key selection, header/query injection, failure classification |
+| `cmd/keyrotator/app.go` | Wiring, HTTP server, request log, health sweeper, shutdown |
+| `cmd/keyrotator/proxy.go` | The `/p/...` proxy handler, proxy-token auth, retries |
+| `cmd/keyrotator/rotator.go` | Key selection, injection, field groups, failure classification |
 | `cmd/keyrotator/limits.go` | Token-bucket rate limiter (per provider and per key) |
-| `cmd/keyrotator/proxy.go` | The `/p/...` proxy handler and proxy-token auth |
+| `cmd/keyrotator/config.go` | Config model, atomic persistence, migration |
+| `cmd/keyrotator/alias.go` | Key aliases and their uniqueness |
 | `cmd/keyrotator/api.go` | Admin REST API; embeds `web/ui.html` |
 | `cmd/keyrotator/cli.go` | `keyrotator <command>` management CLI |
-| `cmd/keyrotator/service_windows.go` | Windows service install/run (`//go:build windows`) |
-| `cmd/keyrotator/service_other.go` | Non-Windows stub (`//go:build !windows`) |
+| `cmd/keyrotator/tui.go` | Terminal UI, a client of the admin API |
+| `cmd/keyrotator/daemon.go` | `start` / `stop` / `status` background mode |
+| `cmd/keyrotator/metrics.go` | Prometheus endpoint |
+| `cmd/keyrotator/platform.go` | Lists the per-OS hooks; shared start-at-login types |
+| `cmd/keyrotator/platform_<os>.go` | One file per OS implementing the hooks (`windows`, `darwin`, `linux`, `other`, `unix`) |
+| `cmd/keyrotator/service_windows.go` | Windows service install/run, with a stub in `service_other.go` |
 | `cmd/keyrotator/web/ui.html` | Dashboard (single file, embedded into the binary) |
-| `scripts/build.ps1` | Builds `bin\keyrotator.exe` |
-| `scripts/update.ps1` | Stops the running instance, rebuilds, restarts it |
+| `docs/*.md` | User guides linked from the README |
+| `scripts/build.*`, `scripts/update.*` | Build, and stop-rebuild-restart, for PowerShell and POSIX shells |
 
 Config lives in the OS user config directory by default: `%APPDATA%\KeyRotator\config.json`
 on Windows, `~/Library/Application Support/KeyRotator/config.json` on macOS, and
 `$XDG_CONFIG_HOME/KeyRotator/config.json` on Linux. Override with `-config`. It is never part of the repo.
-
-Additional files since the first version: `alias.go` (key names and uniqueness), `tui.go` (terminal
-UI, a client of the admin API), `metrics.go` (Prometheus endpoint), `autostart*.go` (start-at-login per
-OS), `Dockerfile`, and `scripts/*.sh` for macOS and Linux.
 
 ## Commands
 
@@ -58,8 +59,9 @@ be on `PATH`; `scripts/build.ps1` handles that.
 - **Keep it one binary.** New UI assets go under `cmd/keyrotator/web/` and are
   embedded; do not read them from disk at runtime.
 - **Never expose raw keys.** Use `Key.Masked()` for anything displayed or logged.
-- **Platform code stays behind build tags.** Anything touching the Windows
-  service API goes in `service_windows.go`, with a stub in `service_other.go`.
+- **Platform code goes in `platform_<os>.go`.** Add a hook to the list in `platform.go` and
+  implement it for every OS; never branch on `runtime.GOOS` elsewhere. The Windows service
+  stays in `service_windows.go`, with a stub in `service_other.go`.
 - **Concurrency.** Provider state is guarded by `Provider.mu`; `Store` methods
   take their own locks. Hold locks briefly and never call out to upstreams while
   holding one.
@@ -67,8 +69,8 @@ be on `PATH`; `scripts/build.ps1` handles that.
   edit must take effect on the next request without a restart.
 - **Tests.** Logic changes need a unit test in `cmd/keyrotator/*_test.go`. Keep
   tests offline: no real upstream calls and no real API keys.
-- **README stays accurate.** If you change a flag, endpoint, or file path, update
-  `README.md` in the same change.
+- **Docs stay accurate.** If you change a flag, endpoint, or file path, update `README.md`
+  or the matching guide in `docs/` in the same change.
 
 ## Things to ask before doing
 
