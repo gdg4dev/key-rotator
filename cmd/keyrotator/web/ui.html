@@ -230,11 +230,11 @@ tr:last-child td { border-bottom: 0; }
   border-radius: var(--radius-sm); background: var(--sunken);
 }
 .rule input[type=checkbox] { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
-.rule-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.rule-main > select, .rule-main > input { max-width: 100%; }
-.rule .custom { display: grid; grid-template-columns: 96px 1fr 1fr; gap: 8px; }
-.rule .custom[hidden] { display: none; }
-.rule [data-rf="preset"] { max-width: 360px; }
+.rule-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rule-line { display: flex; gap: 8px; min-width: 0; }
+.rule-line select { flex: 0 0 120px; }
+.rule-line .prefix { flex: 0 0 170px; }
+.rule-example { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
 .rule-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
 .rule .group-in { width: 130px; height: 30px; }
 .held-note { font-size: 11px; color: var(--warn); }
@@ -247,7 +247,21 @@ tr:last-child td { border-bottom: 0; }
 .rule.held { border-style: dashed; border-left-style: solid; opacity: .72; }
 .rc-group { color: var(--accent); font-weight: 600; }
 .rule-chip.held { opacity: .55; border-style: dashed; }
-@media (max-width: 760px) { .rule .custom { grid-template-columns: 1fr; } }
+.quick-add { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.preview { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.card-preview { margin: 0; border-width: 0 0 1px; border-radius: 0; padding: 14px 18px; }
+.pv-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pv-head .grow { flex: 1; }
+.pv-title { font-weight: 650; }
+.pv-step { font-variant-numeric: tabular-nums; font-size: 13px; min-width: 76px; text-align: center; }
+.pv-order { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.pv-chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--sunken); color: var(--ink-2); }
+.pv-chip.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pv-key { margin-top: 8px; font-size: 13px; }
+.pv-req { margin: 10px 0 0; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--sunken); font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pv-warn { margin-top: 8px; font-size: 12.5px; color: var(--warn); }
+.pv-bad { margin-top: 8px; font-size: 12.5px; color: var(--bad); }
+@media (max-width: 760px) { .rule-line { flex-wrap: wrap; } .rule-line select, .rule-line .prefix { flex: 1 1 140px; } }
 
 
 
@@ -374,6 +388,7 @@ let LOGS = [];
 const reveal = {};
 const keyEdit = {};
 const providerEdit = {};
+const previewOpen = {};
 const keyDraft = {};
 const keyAliasDraft = {};
 let newOpen = false;
@@ -627,27 +642,28 @@ function renderSettings(){
 // ---------- provider form (fields + injection rules) ----------
 
 // ---------- request fields ----------
-// "Where your API key is sent" has one row per place the key goes. The detail
-// fields appear only for "Custom" (progressive disclosure). "Fixed values" are
-// sent unchanged. Any row can join a group by typing the same group name:
-// grouped rows are sent together, all or nothing.
+// Each row says plainly where something goes: [Header|URL query] [name]
+// [prefix], with a live example line under it. Below the rows, a preview shows
+// a whole sample request and steps through the key rotation, so the effect of
+// every setting is visible before saving. Grouped rows (same group name) are
+// sent together, all or nothing.
 
+// Common places an API key goes. Each becomes an "Add a place" button.
 const KEY_PRESETS = [
-  { id: 'bearer',    label: 'Authorization header (Bearer)', in: 'header', name: 'Authorization',  prefix: 'Bearer ' },
-  { id: 'x-api-key', label: 'x-api-key header',              in: 'header', name: 'x-api-key',      prefix: '' },
-  { id: 'goog',      label: 'x-goog-api-key header',         in: 'header', name: 'x-goog-api-key', prefix: '' },
-  { id: 'q-api_key', label: 'api_key in the URL',            in: 'query',  name: 'api_key',        prefix: '' },
-  { id: 'custom',    label: 'Custom…' },
+  { id: 'bearer',    label: 'Authorization: Bearer', in: 'header', name: 'Authorization',  prefix: 'Bearer ' },
+  { id: 'x-api-key', label: 'x-api-key',             in: 'header', name: 'x-api-key',      prefix: '' },
+  { id: 'goog',      label: 'x-goog-api-key',        in: 'header', name: 'x-goog-api-key', prefix: '' },
+  { id: 'q-api_key', label: '?api_key= in the URL',  in: 'query',  name: 'api_key',        prefix: '' },
 ];
+
+const STRATEGY_TEXT = {
+  round_robin: 'Round robin: keys take turns, in order.',
+  random: 'Random: each request picks any usable key.',
+  least_used: 'Least used: the key that has waited longest goes next.',
+};
 
 // Colours for group rails. Each group takes the next one, wrapping around.
 const GROUP_SLOTS = 5;
-
-// presetFor finds which preset a rule matches, so the dropdown shows the truth.
-function presetFor(r){
-  const hit = KEY_PRESETS.find(p => p.in && p.in === r.in && p.name === r.name && (p.prefix || '') === (r.prefix || ''));
-  return hit ? hit.id : 'custom';
-}
 
 // groupOf is the comparable form of a group name: "Beta" and " beta " match.
 function groupOf(r){ return String(r.group || '').trim().toLowerCase(); }
@@ -671,25 +687,23 @@ function groupInput(r){
   '</span>';
 }
 
+const removeButton = '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>';
+
 function keyRuleHTML(r){
   r = Object.assign({ enabled:true, in:'header', name:'', prefix:'', suffix:'', group:'' }, r || {});
-  const preset = presetFor(r);
-  const options = KEY_PRESETS.map(p =>
-    '<option value="' + p.id + '"' + (preset === p.id ? ' selected' : '') + '>' + esc(p.label) + '</option>').join('');
-  const locs = ['header','query'].map(m =>
-    '<option' + (r.in === m ? ' selected' : '') + '>' + m + '</option>').join('');
+  const locs = [['header','Header'],['query','URL query']].map(([v, l]) =>
+    '<option value="' + v + '"' + (r.in === v ? ' selected' : '') + '>' + l + '</option>').join('');
   return '<div class="rule" data-kind="key" data-suffix="' + esc(r.suffix) + '">' +
     '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
     '<div class="rule-main">' +
-      '<select data-rf="preset" aria-label="Send the key as">' + options + '</select>' +
-      '<div class="custom"' + (preset === 'custom' ? '' : ' hidden') + '>' +
-        '<select data-rf="in" aria-label="Location">' + locs + '</select>' +
-        '<input data-rf="name" class="mono" placeholder="field name" value="' + esc(r.name) + '" aria-label="Field name" spellcheck="false">' +
-        '<input data-rf="prefix" class="mono" placeholder="prefix, e.g. Bearer " value="' + esc(r.prefix) + '" aria-label="Prefix" spellcheck="false">' +
+      '<div class="rule-line">' +
+        '<select data-rf="in" aria-label="Where">' + locs + '</select>' +
+        '<input data-rf="name" class="mono" placeholder="name, e.g. Authorization" value="' + esc(r.name) + '" aria-label="Name" spellcheck="false">' +
+        '<input data-rf="prefix" class="mono prefix" placeholder="prefix (optional)" value="' + esc(r.prefix) + '" aria-label="Prefix" spellcheck="false">' +
       '</div>' +
+      '<div class="rule-example mono" data-example></div>' +
     '</div>' +
-    groupInput(r) +
-    '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>' +
+    groupInput(r) + removeButton +
   '</div>';
 }
 
@@ -698,39 +712,35 @@ function fixedRuleHTML(r){
   return '<div class="rule" data-kind="fixed" data-in="' + esc(r.in) + '" data-prefix="' + esc(r.prefix) + '" data-suffix="' + esc(r.suffix) + '">' +
     '<input type="checkbox" data-rf="enabled" aria-label="On"' + (r.enabled !== false ? ' checked' : '') + '>' +
     '<div class="rule-main">' +
-      '<input data-rf="name" class="mono" placeholder="header name, e.g. x-api-version" value="' + esc(r.name) + '" aria-label="Header name" spellcheck="false">' +
-      '<input data-rf="value" class="mono" placeholder="value, e.g. 2024-02-01" value="' + esc(r.value) + '" aria-label="Value" spellcheck="false">' +
+      '<div class="rule-line">' +
+        '<input data-rf="name" class="mono" placeholder="header name, e.g. x-api-version" value="' + esc(r.name) + '" aria-label="Header name" spellcheck="false">' +
+        '<input data-rf="value" class="mono" placeholder="value, e.g. 2024-02-01" value="' + esc(r.value) + '" aria-label="Value" spellcheck="false">' +
+      '</div>' +
+      '<div class="rule-example mono" data-example></div>' +
     '</div>' +
-    groupInput(r) +
-    '<button type="button" class="icon" data-act="del-rule" title="Remove" aria-label="Remove">×</button>' +
+    groupInput(r) + removeButton +
   '</div>';
 }
 
-// ruleName is the field name a row would send, whichever kind of row it is.
-function ruleName(row){
-  const el = row.dataset.kind === 'key'
-    ? row.querySelector('.custom [data-rf="name"]')
-    : row.querySelector('[data-rf="name"]');
-  return el ? el.value.trim() : '';
+function ruleName(row){ return row.querySelector('[data-rf="name"]').value.trim(); }
+
+// rowExample is the one line a row adds to a request, with ‹key› for the key.
+function rowExample(row){
+  const name = ruleName(row);
+  if (!name) return 'Give it a name to see what is sent.';
+  const isKey = row.dataset.kind === 'key';
+  const where = isKey ? row.querySelector('[data-rf="in"]').value : (row.dataset.in || 'header');
+  const value = isKey
+    ? row.querySelector('[data-rf="prefix"]').value + '‹key›' + (row.dataset.suffix || '')
+    : (row.dataset.prefix || '') + row.querySelector('[data-rf="value"]').value + (row.dataset.suffix || '');
+  return where === 'query' ? '→ …?' + name + '=' + value : '→ ' + name + ': ' + value;
 }
 
-// applyPreset copies a chosen preset into the detail fields of its row.
-function applyPreset(row){
-  const sel = row.querySelector('[data-rf="preset"]');
-  const custom = row.querySelector('.custom');
-  const p = KEY_PRESETS.find(x => x.id === sel.value);
-  if (!p || !p.in){ custom.hidden = false; return; }
-  custom.hidden = true;
-  row.querySelector('.custom [data-rf="in"]').value = p.in;
-  row.querySelector('.custom [data-rf="name"]').value = p.name;
-  row.querySelector('.custom [data-rf="prefix"]').value = p.prefix || '';
-}
-
-// refreshGroups redraws the group rails and "held" notes inside one form. It
-// runs on every edit, so the picture always matches what will be saved.
-function refreshGroups(scope){
-  if (!scope) return;
-  const rows = [...scope.querySelectorAll('.rule')];
+// refreshForm redraws everything derived from the rows: group rails, the
+// example under each row, and the preview. It runs on every edit.
+function refreshForm(panel){
+  if (!panel) return;
+  const rows = [...panel.querySelectorAll('.rule')];
   const info = rows.map(row => {
     const label = row.querySelector('[data-rf="group"]').value.trim();
     return {
@@ -754,11 +764,112 @@ function refreshGroups(scope){
     const note = r.querySelector('.held-note');
     note.hidden = !isHeld;
     note.title = isHeld ? 'Held: every field in group "' + x.label + '" must be on and named' : '';
+    r.querySelector('[data-example]').textContent = rowExample(r);
   }
   // Offer the group names already in use, so a typed name matches exactly.
   const names = [...new Set(info.filter(x => x.label).map(x => x.label))];
   document.getElementById('group-names').innerHTML = names.map(n => '<option value="' + esc(n) + '">').join('');
+  renderFormPreview(panel);
 }
+
+// ---------- request preview ----------
+// A client-side simulation of key selection (rotator.go selectKey). It only
+// reads the keys it is given and never sends anything.
+
+const pvStep = {};    // preview scope -> current request index, 0-based
+const pvRandom = {};  // preview scope -> random picks made so far
+
+function maskKey(v){
+  v = String(v || '');
+  return v.length > 10 ? v.slice(0, 4) + '…' + v.slice(-4) : '••••';
+}
+
+// previewPool mirrors selection: ready keys first, cooling keys only as a fallback.
+function previewPool(keys){
+  const now = Math.floor(Date.now() / 1000);
+  const usable = keys.filter(k => k.enabled && k.status !== 'invalid');
+  const ready = usable.filter(k => !(k.status === 'cooldown' && k.cooldownUntil > now));
+  return ready.length ? ready : usable;
+}
+
+function previewPick(scope, strategy, pool, step){
+  const n = pool.length;
+  if (!n) return null;
+  if (strategy === 'random'){
+    const picks = pvRandom[scope] || (pvRandom[scope] = []);
+    while (picks.length <= step) picks.push(Math.floor(Math.random() * n));
+    return pool[picks[step] % n];
+  }
+  if (strategy === 'least_used'){
+    const used = pool.map(k => k.lastUsed || 0);
+    let pick = 0;
+    for (let s = 0; s <= step; s++){
+      pick = used.indexOf(Math.min(...used));
+      used[pick] = 1e15 + s; // just used, so it goes to the back of the line
+    }
+    return pool[pick];
+  }
+  return pool[step % n];
+}
+
+function previewHTML(scope, m){
+  const step = pvStep[scope] || 0;
+  const pool = previewPool(m.keys || []);
+  const key = previewPick(scope, m.strategy, pool, step);
+  const keyText = key ? maskKey(key.value) : '‹your key›';
+  const held = heldGroups(m.rules);
+  const sent = [], heldRules = [];
+  for (const r of m.rules){
+    if (!r.enabled || !String(r.name || '').trim()) continue;
+    const g = groupOf(r);
+    (g && held.has(g) ? heldRules : sent).push(r);
+  }
+  const value = r => (r.prefix || '') + (r.source === 'static' ? (r.value || '') : keyText) + (r.suffix || '');
+  const query = sent.filter(r => r.in === 'query').map(r => r.name + '=' + value(r));
+  const headers = sent.filter(r => r.in !== 'query').map(r => r.name + ': ' + value(r));
+  const base = String(m.baseUrl || 'https://api.example.com').replace(/\/+$/, '');
+  const request = ['POST ' + base + '/…' + (query.length ? '?' + query.join('&') : '')].concat(headers).join('\n');
+
+  let order = '';
+  for (let s = Math.max(0, step - 2); pool.length && s <= step + 3; s++){
+    const k = previewPick(scope, m.strategy, pool, s);
+    order += '<span class="pv-chip' + (s === step ? ' now' : '') + '">' + (s + 1) + ' · ' + esc(k.label || k.id) + '</span>';
+  }
+  return '<div class="pv-head">' +
+      '<span class="pv-title">Preview</span><span class="faint small">a sample request · nothing is sent</span>' +
+      '<span class="grow"></span>' +
+      '<button type="button" class="ghost sm" data-act="pv-prev" data-scope="' + scope + '"' + (step ? '' : ' disabled') + '>◀ Prev</button>' +
+      '<span class="pv-step">Request ' + (step + 1) + '</span>' +
+      '<button type="button" class="ghost sm" data-act="pv-next" data-scope="' + scope + '">' + (m.strategy === 'random' ? 'Next pick ▶' : 'Next ▶') + '</button>' +
+    '</div>' +
+    '<div class="faint small">' + esc(STRATEGY_TEXT[m.strategy] || '') + '</div>' +
+    (pool.length
+      ? '<div class="pv-order">' + order + '</div>' +
+        '<div class="pv-key">Request ' + (step + 1) + ' uses <b>' + esc(key.label || key.id) + '</b> <span class="mono faint">' + esc(keyText) + '</span></div>'
+      : '<div class="pv-key faint">No usable keys yet. The sample shows where a key would go.</div>') +
+    '<pre class="pv-req">' + esc(request) + '</pre>' +
+    (heldRules.length ? '<div class="pv-warn">Held back, group incomplete: ' + heldRules.map(r => esc(r.name)).join(', ') + '</div>' : '') +
+    (!sent.some(r => r.source !== 'static') ? '<div class="pv-bad">The key is not sent anywhere. Turn on at least one place.</div>' : '');
+}
+
+// renderFormPreview previews the form as it is now, including unsaved edits.
+function renderFormPreview(panel){
+  const box = panel.querySelector('[data-preview]');
+  if (!box) return;
+  const card = panel.closest('[data-card]');
+  const p = card ? S.providers.find(x => x.id === card.dataset.card) : null;
+  const body = readForm(panel);
+  box.innerHTML = previewHTML('form-' + (p ? p.id : 'new'), {
+    strategy: body.strategy || 'round_robin', baseUrl: body.baseUrl, rules: body.inject, keys: p ? (p.keys || []) : [],
+  });
+}
+
+// cardPreviewHTML previews a saved provider, from its provider card.
+function cardPreviewHTML(p){
+  return previewHTML('card-' + p.id, { strategy: p.strategy, baseUrl: p.baseUrl, rules: p.inject || [], keys: p.keys || [] });
+}
+
+// ---------- provider form ----------
 
 function providerForm(p){
   const def = { name:'', baseUrl:'', healthPath:'/models', strategy:'round_robin',
@@ -767,14 +878,16 @@ function providerForm(p){
   const rules = p.inject || [];
   const keyRules = rules.filter(r => r.source !== 'static');
   const fixedRules = rules.filter(r => r.source === 'static');
-  const strat = ['round_robin','random','least_used'].map(s =>
-    '<option value="' + s + '"' + (p.strategy === s ? ' selected' : '') + '>' + s + '</option>').join('');
+  const strat = [['round_robin','Round robin'],['random','Random'],['least_used','Least used']].map(([v, l]) =>
+    '<option value="' + v + '"' + (p.strategy === v ? ' selected' : '') + '>' + l + '</option>').join('');
   const rateVal = v => (v === null || v === undefined) ? '' : v;
   const firstKey = keyRules.length ? keyRules : [{ in:'header', name:'Authorization', prefix:'Bearer ' }];
+  const quickAdd = KEY_PRESETS.map(pr =>
+    '<button type="button" class="ghost sm" data-act="add-key-rule" data-preset="' + pr.id + '">' + esc(pr.label) + '</button>').join('');
   return '<div class="grid3">' +
       '<div><label class="lbl">Name</label><input data-f="name" value="' + esc(p.name) + '" placeholder="OpenAI main"></div>' +
       '<div><label class="lbl">Base URL</label><input data-f="baseUrl" value="' + esc(p.baseUrl) + '" placeholder="https://api.openai.com/v1" spellcheck="false"></div>' +
-      '<div><label class="lbl">Strategy</label><select data-f="strategy">' + strat + '</select></div>' +
+      '<div><label class="lbl">Rotation</label><select data-f="strategy">' + strat + '</select></div>' +
     '</div>' +
     '<div class="grid3" style="margin-top:14px">' +
       '<div><label class="lbl">Health check path</label><input data-f="healthPath" value="' + esc(p.healthPath) + '" placeholder="/models" spellcheck="false"></div>' +
@@ -790,21 +903,23 @@ function providerForm(p){
     '</div>' +
     '<div class="sep"></div>' +
     '<div class="section-head2">Where your API key is sent</div>' +
-    '<p class="faint small" style="margin:2px 0 10px">The key is sent to every place listed here, on every request.</p>' +
+    '<p class="faint small" style="margin:2px 0 10px">Most APIs need one place. The key is sent to every place listed here.</p>' +
     '<div data-keyrules>' + firstKey.map(keyRuleHTML).join('') + '</div>' +
-    '<div style="margin-top:8px"><button type="button" class="ghost sm" data-act="add-key-rule">+ Add another place</button></div>' +
+    '<div class="quick-add"><span class="faint small">Add a place:</span>' + quickAdd +
+      '<button type="button" class="ghost sm" data-act="add-key-rule" data-preset="">Custom</button></div>' +
     '<div class="sep"></div>' +
     '<div class="section-head2">Fixed values <span class="faint small">optional</span></div>' +
     '<p class="faint small" style="margin:2px 0 10px">Sent unchanged on every request, for example an API version header.</p>' +
     '<div data-fixedrules>' + fixedRules.map(fixedRuleHTML).join('') + '</div>' +
-    '<div style="margin-top:8px"><button type="button" class="ghost sm" data-act="add-fixed-rule">+ Add fixed value</button></div>' +
-    '<div class="sep"></div>' +
-    '<p class="hint" style="margin:0"><b>Groups.</b> Rows with no group are sent on their own. Rows with the same group name are sent together: ' +
-    'if one of them is off or has no name, none of the group is sent.</p>';
+    '<div class="quick-add"><button type="button" class="ghost sm" data-act="add-fixed-rule">+ Add fixed value</button></div>' +
+    '<p class="hint"><b>Groups.</b> Rows with no group are sent on their own. Rows with the same group name are sent together: ' +
+    'if one of them is off or has no name, none of the group is sent.</p>' +
+    '<div class="preview" data-preview></div>';
 }
 
 // readForm turns the open form into a provider body. A grouped row with no name
-// sets groupError, because saving it would silently hold its whole group.
+// is kept (it holds its group, as the server does) but sets groupError, so the
+// form explains the problem instead of saving a group that can never be sent.
 function readForm(root){
   const out = {};
   root.querySelectorAll('[data-f]').forEach(el => { out[el.dataset.f] = el.value.trim(); });
@@ -819,16 +934,14 @@ function readForm(root){
   root.querySelectorAll('[data-keyrules] .rule, [data-fixedrules] .rule').forEach(row => {
     const group = row.querySelector('[data-rf="group"]').value.trim();
     const name = ruleName(row);
-    if (!name){
-      if (group) badGroups.push(group);
-      return;
-    }
+    if (!name && !group) return;
+    if (!name) badGroups.push(group);
     const enabled = row.querySelector('[data-rf="enabled"]').checked;
     if (row.dataset.kind === 'key'){
       rules.push({
-        enabled, in: row.querySelector('.custom [data-rf="in"]').value, name,
+        enabled, in: row.querySelector('[data-rf="in"]').value, name,
         source: 'key', value: '',
-        prefix: row.querySelector('.custom [data-rf="prefix"]').value,
+        prefix: row.querySelector('[data-rf="prefix"]').value,
         suffix: row.dataset.suffix || '', group,
       });
     } else {
@@ -870,6 +983,7 @@ function renderNew(){
     catch(e){ toast(e.message, true); }
   };
   $('#np-cancel').onclick = () => { newOpen = false; renderNew(); };
+  refreshForm(el.querySelector('.panel'));
 }
 
 // ---------- provider list ----------
@@ -883,7 +997,7 @@ function renderMain(){
     return;
   }
   el.innerHTML = S.providers.map(providerCard).join('');
-  el.querySelectorAll('.panel').forEach(refreshGroups);
+  el.querySelectorAll('.panel').forEach(refreshForm);
   document.querySelectorAll('#main [data-act="key-value"]').forEach(inp => {
     inp.oninput = () => { keyDraft[inp.dataset.id] = inp.value; };
   });
@@ -916,6 +1030,8 @@ function patchCard(card, p){
   // The field chips show held groups, so they are redrawn with the live state.
   const fields = card.querySelector('.fields');
   if (fields) fields.innerHTML = ruleChips(p);
+  const pv = card.querySelector('[data-card-preview]');
+  if (pv) pv.innerHTML = cardPreviewHTML(p);
   const badge = card.querySelector('[data-p="badge"]');
   if (badge){ badge.className = 'badge ' + (p.enabled ? 'b-ok' : 'b-off'); badge.textContent = p.enabled ? 'enabled' : 'disabled'; }
   const tg = card.querySelector('[data-act="toggle-provider"]');
@@ -986,6 +1102,7 @@ function providerCard(p){
       '<span class="badge ' + (p.enabled ? 'b-ok' : 'b-off') + '" data-p="badge">' + (p.enabled ? 'enabled' : 'disabled') + '</span>' +
       '<span class="p-actions">' +
         '<button class="ghost sm" data-act="toggle-provider" data-id="' + p.id + '">' + (p.enabled ? 'Disable' : 'Enable') + '</button>' +
+        '<button class="ghost sm" data-act="toggle-preview" data-id="' + p.id + '">' + (previewOpen[p.id] ? 'Hide preview' : 'Preview') + '</button>' +
         '<button class="ghost sm" data-act="edit-provider" data-id="' + p.id + '">' + (editing ? 'Close' : 'Edit') + '</button>' +
         '<button class="ghost sm danger" data-act="del-provider" data-id="' + p.id + '" data-name="' + esc(p.name) + '">Delete</button>' +
       '</span>' +
@@ -999,6 +1116,7 @@ function providerCard(p){
       (keyRPS > 0 ? '<span class="tag" title="Per-key rate limit">' + rpsText(keyRPS) + ' req/s per key</span>' : '') +
     '</div>' +
     '<div class="fields">' + ruleChips(p) + '</div>' +
+    (previewOpen[p.id] ? '<div class="preview card-preview" data-card-preview="' + p.id + '">' + cardPreviewHTML(p) + '</div>' : '') +
     '<div class="proxy"><code>' + esc(proxy) + '</code>' +
       '<button class="ghost sm" data-act="copy" data-copy="' + esc(proxy) + '">Copy URL</button></div>' +
     (token ? '<div class="faint small" style="padding:8px 18px 0">Send the token in the path, an <span class="mono">X-Rotator-Token</span> or <span class="mono">Authorization: Bearer</span> header, or <span class="mono">?token=</span>.</div>' : '') +
@@ -1061,15 +1179,12 @@ function updateLogs(){
 // ---------- events ----------
 
 document.addEventListener('change', (ev) => {
-  const el = ev.target;
-  const row = el.closest && el.closest('.rule');
-  if (row && el.matches('[data-rf="preset"]')) applyPreset(row);
-  const panel = el.closest && el.closest('.panel');
-  if (panel) refreshGroups(panel);
+  const panel = ev.target.closest && ev.target.closest('.panel');
+  if (panel) refreshForm(panel);
 });
 document.addEventListener('input', (ev) => {
   const panel = ev.target.closest && ev.target.closest('.panel');
-  if (panel) refreshGroups(panel);
+  if (panel) refreshForm(panel);
 });
 
 document.addEventListener('click', async (ev) => {
@@ -1086,16 +1201,36 @@ document.addEventListener('click', async (ev) => {
         newOpen = true; renderNew(); $('#newprovider').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
       case 'add-key-rule': {
         const panel = btn.closest('.panel');
-        panel.querySelector('[data-keyrules]').insertAdjacentHTML('beforeend', keyRuleHTML());
-        refreshGroups(panel);
+        const preset = KEY_PRESETS.find(x => x.id === btn.dataset.preset);
+        const list = panel.querySelector('[data-keyrules]');
+        list.insertAdjacentHTML('beforeend', keyRuleHTML(preset ? { in: preset.in, name: preset.name, prefix: preset.prefix } : {}));
+        refreshForm(panel);
+        if (!preset) list.lastElementChild.querySelector('[data-rf="name"]').focus();
         break;
       }
       case 'add-fixed-rule': {
         const panel = btn.closest('.panel');
-        panel.querySelector('[data-fixedrules]').insertAdjacentHTML('beforeend', fixedRuleHTML());
-        refreshGroups(panel);
+        const list = panel.querySelector('[data-fixedrules]');
+        list.insertAdjacentHTML('beforeend', fixedRuleHTML());
+        refreshForm(panel);
+        list.lastElementChild.querySelector('[data-rf="name"]').focus();
         break;
       }
+      case 'pv-next':
+      case 'pv-prev': {
+        const scope = btn.dataset.scope;
+        pvStep[scope] = Math.max(0, (pvStep[scope] || 0) + (a === 'pv-next' ? 1 : -1));
+        const panel = btn.closest('.panel');
+        if (panel) renderFormPreview(panel);
+        else {
+          const box = btn.closest('[data-card-preview]');
+          const p = S.providers.find(x => x.id === box.dataset.cardPreview);
+          if (p) box.innerHTML = cardPreviewHTML(p);
+        }
+        break;
+      }
+      case 'toggle-preview':
+        previewOpen[pid] = !previewOpen[pid]; renderMain(); break;
       case 'del-rule': {
         const row = btn.closest('.rule');
         const isKey = row.dataset.kind === 'key';
@@ -1103,7 +1238,7 @@ document.addEventListener('click', async (ev) => {
         if (isKey && keyCount <= 1){ toast('Keep at least one place for the key', true); break; }
         const panel = row.closest('.panel');
         row.remove();
-        refreshGroups(panel);
+        refreshForm(panel);
         break;
       }
       case 'copy':
