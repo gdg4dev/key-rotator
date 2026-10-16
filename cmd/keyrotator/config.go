@@ -29,6 +29,8 @@ type Key struct {
 	// Parts holds a key's other values by name, for APIs that need a matched
 	// set such as an API key and its session id. See parts.go.
 	Parts map[string]string `json:"parts,omitempty"`
+	// Pool is the key group this key belongs to; empty means "default". See pool.go.
+	Pool string `json:"pool,omitempty"`
 }
 
 // Masked returns a safe-to-display version of the key value.
@@ -64,6 +66,8 @@ type InjectRule struct {
 	Group string `json:"group,omitempty"`
 	// Part is the part of the key this place sends; empty means the main value.
 	Part string `json:"part,omitempty"`
+	// Pool is the key group this place draws from; empty means "default".
+	Pool string `json:"pool,omitempty"`
 }
 
 // Provider is an upstream API plus its pool of keys.
@@ -90,8 +94,8 @@ type Provider struct {
 	AuthHeader string `json:"authHeader,omitempty"`
 	AuthPrefix string `json:"authPrefix,omitempty"`
 
-	mu sync.Mutex `json:"-"`
-	rr int        `json:"-"` // round-robin position
+	mu sync.Mutex     `json:"-"`
+	rr map[string]int `json:"-"` // round-robin position per key group
 }
 
 func normalizeRules(in []InjectRule) []InjectRule {
@@ -114,8 +118,9 @@ func normalizeRules(in []InjectRule) []InjectRule {
 		}
 		r.Value = strings.TrimSpace(r.Value)
 		r.Part = partName(r.Part)
+		r.Pool = storedPool(r.Pool)
 		if r.Source == "static" {
-			r.Part = "" // a fixed value never uses a key
+			r.Part, r.Pool = "", "" // a fixed value never uses a key
 		}
 		// Prefix and Suffix are deliberately left untouched.
 		out = append(out, r)
@@ -127,6 +132,7 @@ func (p *Provider) normalize() {
 	assignAliases(p.Keys)
 	for _, k := range p.Keys {
 		k.Parts = normalizeParts(k.Parts)
+		k.Pool = storedPool(k.Pool)
 	}
 	if p.ID == "" {
 		p.ID = newID()

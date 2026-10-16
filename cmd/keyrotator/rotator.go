@@ -47,12 +47,16 @@ func activeRules(rules []InjectRule) []InjectRule {
 }
 
 // applyInjection writes every active rule onto the outgoing request. A key
-// place sends the part of k it names (the main value by default); a "static"
-// rule always sends its fixed value.
-func applyInjection(p *Provider, k *Key, req *http.Request) {
+// place sends the named part of the key chosen for its group (keyFor); a
+// "static" rule always sends its fixed value.
+func applyInjection(p *Provider, keyFor func(pool string) *Key, req *http.Request) {
 	for _, r := range activeRules(p.Inject) {
 		raw := r.Value
 		if r.Source != "static" {
+			k := keyFor(poolKey(r.Pool))
+			if k == nil {
+				continue
+			}
 			v, ok := k.part(partName(r.Part))
 			if !ok {
 				continue
@@ -77,17 +81,17 @@ const (
 	statusError    = "error"
 )
 
-// selectKey returns the next key. Keys missing a part that a place sends are
-// skipped. allow, when non-nil, filters out keys that are over their own rate
-// limit. It reports whether usable keys existed but were all filtered out. The
-// caller holds p.mu.
-func (p *Provider) selectKey(allow func(*Key) bool) (*Key, bool) {
-	needed := neededParts(p.Inject)
+// selectKey returns the next key from one key group. Keys missing a part that
+// a place of that group sends are skipped. allow, when non-nil, filters out keys
+// that are over their own rate limit. It reports whether usable keys existed
+// but were all filtered out. The caller holds p.mu.
+func (p *Provider) selectKey(pool string, allow func(*Key) bool) (*Key, bool) {
+	needed := neededPartsFor(p.Inject, pool)
 	now := time.Now().Unix()
 	var ready, cooling []*Key
 	blocked := false
 	for _, k := range p.Keys {
-		if !k.Enabled || k.Status == statusInvalid || !k.hasParts(needed) {
+		if poolKey(k.Pool) != pool || !k.Enabled || k.Status == statusInvalid || !k.hasParts(needed) {
 			continue
 		}
 		if allow != nil && !allow(k) {
@@ -118,30 +122,16 @@ func (p *Provider) selectKey(allow func(*Key) bool) (*Key, bool) {
 			}
 		}
 		return best, false
-	default: // round_robin
+	default: // round_robin, one position per key group
+		if p.rr == nil {
+			p.rr = map[string]int{}
+		}
 		// Use the current position, then move on, so the first request gets the
 		// first key and the order matches the dashboard preview.
-		i := p.rr % len(candidates)
-		p.rr = i + 1
+		i := p.rr[pool] % len(candidates)
+		p.rr[pool] = i + 1
 		return candidates[i], false
 	}
-}
-
-// Pick chooses the key for one attempt, under the provider lock. A pin (a key's
-// alias or id) is used as is: it is an explicit choice, so it ignores the
-// per-key budget, but it still counts against the provider limit. The bool
-// reports that keys exist but every one is over its per-key rate limit.
-func (p *Provider) Pick(pin string, allow func(*Key) bool) (*Key, bool) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if pin != "" {
-		for _, k := range p.Keys {
-			if k.ID == pin || strings.EqualFold(k.Label, pin) {
-				return k, false
-			}
-		}
-	}
-	return p.selectKey(allow)
 }
 
 // shortestKeyWait is how long until any usable key of this provider has a free

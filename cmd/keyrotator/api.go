@@ -256,6 +256,9 @@ func (req providerReq) checkNames() error {
 		if err := validateName("part", r.Part); err != nil {
 			return err
 		}
+		if err := validateName("key group", r.Pool); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -350,6 +353,7 @@ type keyReq struct {
 	Value   string             `json:"value"`
 	Enabled *bool              `json:"enabled"`
 	Parts   *map[string]string `json:"parts"`
+	Pool    *string            `json:"pool"`
 }
 
 func (a *App) postKey(w http.ResponseWriter, r *http.Request, pid string) {
@@ -387,6 +391,13 @@ func (a *App) postKey(w http.ResponseWriter, r *http.Request, pid string) {
 			return
 		}
 		k.Parts = normalizeParts(*req.Parts)
+	}
+	if req.Pool != nil {
+		if err := validateName("key group", *req.Pool); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		k.Pool = storedPool(*req.Pool)
 	}
 	if err := p.addKey(k, alias); err != nil {
 		writeErr(w, http.StatusConflict, err.Error())
@@ -428,9 +439,18 @@ func (a *App) putKey(w http.ResponseWriter, r *http.Request, pid, kid string) {
 			return
 		}
 	}
+	if req.Pool != nil {
+		if err := validateName("key group", *req.Pool); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	if !a.store.MutateKey(pid, kid, func(_ *Provider, k *Key) error {
 		if req.Parts != nil {
 			k.Parts = normalizeParts(*req.Parts) // the given set replaces the old one
+		}
+		if req.Pool != nil {
+			k.Pool = storedPool(*req.Pool)
 		}
 		if strings.TrimSpace(req.Value) != "" {
 			k.Value = strings.TrimSpace(req.Value)

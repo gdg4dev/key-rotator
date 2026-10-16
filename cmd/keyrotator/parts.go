@@ -37,23 +37,6 @@ func (k *Key) part(name string) (string, bool) {
 	return v, ok && v != ""
 }
 
-// neededParts lists the named parts that the active key places send. A key that
-// lacks one of them cannot make a complete request, so selection skips it.
-func neededParts(rules []InjectRule) []string {
-	var out []string
-	seen := map[string]bool{}
-	for _, r := range activeRules(rules) {
-		if r.Source == "static" {
-			continue
-		}
-		if n := partName(r.Part); n != "" && !seen[n] {
-			seen[n] = true
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
 // hasParts reports whether the key has a value for every named part.
 func (k *Key) hasParts(names []string) bool {
 	for _, n := range names {
